@@ -889,14 +889,21 @@ initPicker();
 S.db = MemDB();
 route();
 (function connect() {
-  var cfg = window.LBX_CONFIG, why = null;
+  var cfg = window.LBX_CONFIG, why = null, url = '', key = '';
+  function clean(v) { return String(v == null ? '' : v).replace(/[\u0000-\u0020\u007F-\u00A0\u00AD\u2000-\u200F\u2028-\u202F\u205F-\u206F\u3000\uFEFF'"‘’“”]/g, ''); }
+  if (cfg) {
+    var um = clean(cfg.supabaseUrl).match(/https:\/\/[a-z0-9-]+\.supabase\.co/i);
+    url = um ? um[0] : '';
+    key = clean(cfg.supabaseAnonKey);
+  }
   if (!window.supabase || !window.supabase.createClient) why = 'The Supabase library did not load. Check your internet connection and reload.';
-  else if (!cfg) why = 'config.js did not load. Check it is uploaded to GitHub with exactly that name (not config.js.txt) next to index.html.';
-  else if (!cfg.supabaseUrl || /YOUR-/.test(cfg.supabaseUrl)) why = 'config.js still has the placeholder Project URL. Upload your edited config.js to GitHub, wait a minute, then reload.';
-  else if (!cfg.supabaseAnonKey || /YOUR-/.test(cfg.supabaseAnonKey)) why = 'config.js still has the placeholder key. Upload your edited config.js to GitHub, wait a minute, then reload.';
-  else if (!/^https:\/\/[a-z0-9-]+\.supabase\.co\/?$/i.test(String(cfg.supabaseUrl).trim())) why = 'The Project URL in config.js looks wrong. It should look like https://abcdefgh.supabase.co with nothing after .co.';
+  else if (!cfg) why = 'config.js did not load. Check it is uploaded to GitHub with exactly that name (not config.js.txt) next to index.html, and that each value is wrapped in straight quote marks.';
+  else if (/YOUR-/.test(String(cfg.supabaseUrl))) why = 'config.js still has the placeholder Project URL. Upload your edited config.js to GitHub, wait a minute, then reload.';
+  else if (/YOUR-/.test(String(cfg.supabaseAnonKey))) why = 'config.js still has the placeholder key. Upload your edited config.js to GitHub, wait a minute, then reload.';
+  else if (!url) why = 'Could not find a Supabase Project URL in config.js. It should look like https://abcdefgh.supabase.co';
+  else if (key.length < 20) why = 'The key in config.js looks too short. Copy the whole anon public key (it starts with eyJ).';
   if (why) { S.setupNeeded = why; subscribe(); return; }
-  var db = SupaDB(window.supabase.createClient(String(cfg.supabaseUrl).trim().replace(/\/$/, ''), String(cfg.supabaseAnonKey).trim()));
+  var db = SupaDB(window.supabase.createClient(url, key));
   S.db = db; S.live = true; subscribe();
   db.count().then(function (n) { // first visit to an empty database: load the example requests once
     if (n > 0) return;
