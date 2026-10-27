@@ -1,0 +1,916 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Leave Block Exchange</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Public+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}img{max-width:100%}
+
+/* Layout: a roster sheet. A year strip of 17 three-week blocks is the spine of every view. */
+:root{
+  --bg:#ffffff; --surface:#ffffff; --ink:#0f1f3d; --muted:#5a6680; --line:#d3dbe8; --line-soft:#e8edf5;
+  --accent:#c8102e; --accent-ink:#ffffff; --accent-soft:#fbe6e9;
+  --navy:#0b2a5b; --navy-ink:#ffffff;
+  --peak:#fff4c2; --peak-ink:#6b5600; --leave:#dde7f7; --leave-ink:#0b2a5b;
+  --ok:#1f7a4d; --ok-soft:#e0f2e8; --warn:#9a5b00; --warn-soft:#fdf0d9; --off:#8691a6; --off-soft:#f1f3f7;
+  --f-display:"Barlow Semi Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"Public Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  --r:8px; color-scheme:light;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+.wrap{max-width:1120px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header.top{background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
+.topbar{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;justify-content:space-between;padding-block:12px 0}
+.brand{display:flex;align-items:center;gap:10px}
+.brand .mark{width:30px;height:30px;border-radius:6px;background:var(--accent);display:grid;place-items:center}
+.brand .mark svg{display:block}
+.brand h1{font-family:var(--f-display);font-weight:700;font-size:22px;letter-spacing:.01em;margin:0;line-height:1.1}
+.brand small{display:block;color:var(--muted);font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+.actas{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px}
+.actas label{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+select,input[type=date]{font:inherit;font-size:14px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);max-width:100%}
+nav.tabs{display:flex;gap:2px;overflow-x:auto;margin-top:10px}
+nav.tabs a{font-family:var(--f-display);font-weight:600;font-size:16px;letter-spacing:.02em;color:var(--muted);text-decoration:none;padding:8px 14px 10px;border-bottom:3px solid transparent;white-space:nowrap;display:flex;gap:6px;align-items:center}
+nav.tabs a[aria-current=page]{color:var(--ink);border-bottom-color:var(--accent)}
+nav.tabs a:focus-visible,button:focus-visible,select:focus-visible,input:focus-visible,.cell:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.badge{font-family:var(--f-body);font-size:11px;font-weight:600;background:var(--accent);color:var(--accent-ink);border-radius:10px;padding:1px 7px}
+main{padding-block:20px 48px}
+.view{display:grid;gap:18px}
+h2{font-family:var(--f-display);font-weight:700;font-size:24px;margin:0;text-wrap:balance;line-height:1.15}
+h3{font-family:var(--f-display);font-weight:600;font-size:18px;margin:0;line-height:1.2}
+.lede{color:var(--muted);margin:4px 0 0;max-width:68ch}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.spread{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.label{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600}
+button{font:inherit;font-size:14px;font-weight:600;border-radius:6px;padding:7px 14px;cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+button:hover{border-color:var(--muted)}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+button.primary:hover{filter:brightness(1.06)}
+button.ghost{border-color:transparent;background:transparent;color:var(--muted);padding-inline:8px}
+button.ok{background:var(--ok);border-color:var(--ok);color:var(--surface)}
+button:disabled{opacity:.45;cursor:not-allowed}
+.chip{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;border-radius:999px;padding:2px 9px;background:var(--off-soft);color:var(--muted);white-space:nowrap}
+.chip.peak{background:var(--peak);color:var(--peak-ink)}
+.chip.ok{background:var(--ok-soft);color:var(--ok)}
+.chip.warn{background:var(--warn-soft);color:var(--warn)}
+.chip.red{background:var(--accent-soft);color:var(--accent)}
+.chip.blue{background:var(--leave);color:var(--leave-ink)}
+.bk{font-family:var(--f-display);font-weight:700;letter-spacing:.02em}
+
+/* Year strip */
+.strip-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.strip{display:grid;grid-template-columns:repeat(17,minmax(34px,1fr));gap:3px;min-width:600px}
+.cell{border:1px solid var(--line);border-radius:5px;background:var(--surface);padding:4px 2px;text-align:center;font-size:12px;line-height:1.25;min-width:0;position:relative}
+.cell .n{font-family:var(--f-display);font-weight:700;font-size:15px;display:block}
+.cell .d{color:var(--muted);font-size:10.5px;display:block;white-space:nowrap}
+.cell.peak{background:var(--peak)}
+.cell.peak .d{color:var(--peak-ink)}
+.cell.locked{opacity:.42}
+.cell.mine{background:var(--leave);border-color:var(--leave-ink)}
+.cell.mine .n,.cell.mine .d{color:var(--leave-ink)}
+.cell.sel{outline:2px solid var(--accent);outline-offset:-1px;background:var(--accent-soft)}
+.cell.sel .rank{position:absolute;top:-7px;right:-5px;background:var(--accent);color:var(--accent-ink);border-radius:999px;font-size:10px;font-weight:700;min-width:16px;height:16px;line-height:16px;padding:0 3px}
+button.cell{cursor:pointer;font-weight:400;border-radius:5px}
+button.cell:disabled{cursor:not-allowed}
+.bars{display:grid;grid-template-columns:repeat(17,minmax(34px,1fr));gap:3px;min-width:600px;align-items:end;height:70px;margin-top:6px}
+.bars .col{display:flex;gap:2px;align-items:flex-end;justify-content:center;height:100%}
+.bars .b{width:28%;border-radius:2px 2px 0 0;min-height:2px}
+.bars .b.s{background:var(--leave-ink)}
+.bars .b.d{background:var(--accent)}
+.bars .b.p{background:var(--warn)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+
+/* Cards */
+.blocks{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.bcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:grid;gap:10px;min-width:0}
+.bcard .big{font-family:var(--f-display);font-weight:700;font-size:34px;line-height:1}
+.facts{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:13px}
+.facts dt{color:var(--muted)}
+.facts dd{margin:0;font-variant-numeric:tabular-nums}
+.list{display:grid;gap:8px}
+.item{border:1px solid var(--line);border-radius:var(--r);padding:12px;background:var(--surface);display:grid;gap:8px;min-width:0}
+.item.pending{border-left:4px solid var(--warn)}
+.item.agreed{border-left:4px solid var(--ok)}
+.item.dead{border-left:4px solid var(--off);opacity:.75}
+.chain{display:grid;gap:6px}
+.link{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;font-size:14px;padding:6px 8px;border-radius:6px;background:var(--bg)}
+.link.me{background:var(--leave);color:var(--leave-ink)}
+.arrow{font-family:var(--f-mono);font-size:13px;white-space:nowrap}
+.note{border-radius:var(--r);padding:10px 12px;font-size:14px;background:var(--warn-soft);color:var(--warn)}
+.note.info{background:var(--leave);color:var(--leave-ink)}
+.note.ok{background:var(--ok-soft);color:var(--ok)}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+.empty{color:var(--muted);font-size:14px;padding:12px;border:1px dashed var(--line);border-radius:var(--r);text-align:center}
+
+/* Roster table */
+.table-scroll{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}
+table.roster{border-collapse:collapse;font-size:12.5px;min-width:900px;width:100%}
+table.roster th,table.roster td{border-bottom:1px solid var(--line-soft);border-right:1px solid var(--line-soft);padding:4px 5px;text-align:center;white-space:nowrap}
+table.roster th:first-child,table.roster td:first-child{text-align:left;position:sticky;left:0;background:var(--surface);z-index:1;min-width:150px}
+table.roster thead th{font-family:var(--f-display);font-weight:700;font-size:14px;background:var(--surface)}
+table.roster thead th.peak{background:var(--peak);color:var(--peak-ink)}
+table.roster td.on{background:var(--leave);color:var(--leave-ink);font-weight:700}
+table.roster td.in{background:var(--ok-soft);color:var(--ok);font-weight:700}
+table.roster td.out{color:var(--off);text-decoration:line-through}
+table.roster td.listed{box-shadow:inset 0 0 0 2px var(--accent)}
+table.roster tfoot td{font-weight:700;font-variant-numeric:tabular-nums;background:var(--bg)}
+.lvl{color:var(--muted);font-size:11px;margin-left:4px}
+header.top{background:var(--navy);border-bottom:4px solid var(--accent);color:var(--navy-ink)}
+header.top .brand small,header.top .actas label{color:#c4d0e6}
+header.top nav.tabs a{color:#c4d0e6}
+header.top nav.tabs a[aria-current=page]{color:var(--navy-ink);border-bottom-color:var(--accent)}
+header.top .brand .mark{background:var(--accent)}
+header.top select{border-color:#3b5786}
+body::before{background:var(--navy)}
+.busy{position:fixed;left:0;right:0;top:0;z-index:30;background:var(--accent);color:var(--accent-ink);font-weight:600;font-size:14px;text-align:center;padding:8px max(16px,env(safe-area-inset-right,0px)) 8px max(16px,env(safe-area-inset-left,0px));padding-top:calc(8px + env(safe-area-inset-top,0px))}
+body.isbusy [data-act]{pointer-events:none;opacity:.6}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;font-size:14px;z-index:20;max-width:calc(100% - 32px)}
+.how ol,.how ul{margin:6px 0 0;padding-left:20px;display:grid;gap:6px;max-width:72ch}
+.how p{max-width:72ch;margin:6px 0 0}
+details summary{cursor:pointer;font-weight:600}
+@media (max-width:520px){h2{font-size:21px}.bcard .big{font-size:28px}nav.tabs a{padding-inline:10px;font-size:15px}}
+@media (prefers-reduced-motion:no-preference){.item,.bcard{transition:border-color .15s}}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.97.0"></script>
+<script src="config.js"></script>
+</head>
+<body>
+
+
+<header class="top">
+  <div class="wrap">
+    <div class="topbar">
+      <div class="brand">
+        <div class="mark" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 18 18"><path d="M3 6h9l-2.5-2.5M15 12H6l2.5 2.5" fill="none" stroke="var(--accent-ink)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div><h1>Leave Block Exchange</h1><small>Sydney sector · 2027 annual leave</small></div>
+      </div>
+      <div class="actas">
+        <label for="asStation">Acting as</label>
+        <select id="asStation" aria-label="Station"></select>
+        <select id="asPerson" aria-label="Paramedic"></select>
+      </div>
+    </div>
+    <nav class="tabs" aria-label="Views">
+      <a href="#my" data-v="my">My leave <span class="badge" id="myBadge" hidden></span></a>
+      <a href="#pool" data-v="pool">Leave pool</a>
+      <a href="#swaps" data-v="swaps">Swaps</a>
+      <a href="#roster" data-v="roster">Station rosters</a>
+      <a href="#how" data-v="how">How it works</a>
+    </nav>
+  </div>
+</header>
+<main class="wrap" id="main"></main>
+<div class="toast" id="toast" hidden role="status"></div>
+<div class="busy" id="busy" hidden role="status" aria-live="polite"></div>
+
+<script>
+window.SEED = [{"op":"set","path":"listings/maroubra-18-b7","data":{"pid":"maroubra-18","station":"maroubra","block":7,"wants":[10,9],"status":"open","example":true,"created":"2026-10-25T00:00:00.000Z"}},{"op":"set","path":"listings/paddington-22-b10","data":{"pid":"paddington-22","station":"paddington","block":10,"wants":[3],"status":"open","example":true,"created":"2026-10-23T00:00:00.000Z"}},{"op":"set","path":"listings/bondi-27-b3","data":{"pid":"bondi-27","station":"bondi","block":3,"wants":[13,7],"status":"open","example":true,"created":"2026-10-19T00:00:00.000Z"}},{"op":"set","path":"listings/paddington-10-b5","data":{"pid":"paddington-10","station":"paddington","block":5,"wants":[3,17],"status":"open","example":true,"created":"2026-10-24T00:00:00.000Z"}},{"op":"set","path":"listings/bondi-25-b3","data":{"pid":"bondi-25","station":"bondi","block":3,"wants":[9],"status":"open","example":true,"created":"2026-10-27T00:00:00.000Z"}},{"op":"set","path":"listings/bondi-11-b9","data":{"pid":"bondi-11","station":"bondi","block":9,"wants":[17,5],"status":"open","example":true,"created":"2026-10-20T00:00:00.000Z"}},{"op":"set","path":"listings/central-16-b9","data":{"pid":"central-16","station":"central","block":9,"wants":[10,13],"status":"open","example":true,"created":"2026-10-24T00:00:00.000Z"}},{"op":"set","path":"listings/central-19-b10","data":{"pid":"central-19","station":"central","block":10,"wants":[11],"status":"open","example":true,"created":"2026-10-26T00:00:00.000Z"}},{"op":"set","path":"listings/binchicken-22-b11","data":{"pid":"binchicken-22","station":"binchicken","block":11,"wants":[5,9],"status":"open","example":true,"created":"2026-10-19T00:00:00.000Z"}},{"op":"set","path":"listings/mascot-02-b9","data":{"pid":"mascot-02","station":"mascot","block":9,"wants":[4],"status":"open","example":true,"created":"2026-10-23T00:00:00.000Z"}},{"op":"set","path":"listings/mascot-09-b4","data":{"pid":"mascot-09","station":"mascot","block":4,"wants":[17,9],"status":"open","example":true,"created":"2026-10-21T00:00:00.000Z"}},{"op":"set","path":"listings/randwick-05-b7","data":{"pid":"randwick-05","station":"randwick","block":7,"wants":[9],"status":"open","example":true,"created":"2026-10-27T00:00:00.000Z"}},{"op":"set","path":"listings/wobbly-06-b9","data":{"pid":"wobbly-06","station":"wobbly","block":9,"wants":[13,7],"status":"open","example":true,"created":"2026-10-23T00:00:00.000Z"}},{"op":"set","path":"listings/mascot-15-b8","data":{"pid":"mascot-15","station":"mascot","block":8,"wants":[10],"status":"open","example":true,"created":"2026-10-27T00:00:00.000Z"}},{"op":"set","path":"listings/wobbly-15-b10","data":{"pid":"wobbly-15","station":"wobbly","block":10,"wants":[5,8],"status":"open","example":true,"created":"2026-10-19T00:00:00.000Z"}},{"op":"set","path":"listings/central-11-b11","data":{"pid":"central-11","station":"central","block":11,"wants":[9,5],"status":"open","example":true,"created":"2026-10-20T00:00:00.000Z"}},{"op":"set","path":"listings/maroubra-01-b14","data":{"pid":"maroubra-01","station":"maroubra","block":14,"wants":[13,17],"status":"open","example":true,"created":"2026-10-22T00:00:00.000Z"}},{"op":"set","path":"listings/randwick-27-b9","data":{"pid":"randwick-27","station":"randwick","block":9,"wants":[13,5,17],"status":"open","example":true,"created":"2026-10-24T00:00:00.000Z"}},{"op":"set","path":"listings/maroubra-17-b3","data":{"pid":"maroubra-17","station":"maroubra","block":3,"wants":[9,5,17],"status":"open","example":true,"created":"2026-10-22T00:00:00.000Z"}},{"op":"set","path":"listings/central-32-b3","data":{"pid":"central-32","station":"central","block":3,"wants":[17,5],"status":"open","example":true,"created":"2026-10-27T00:00:00.000Z"}},{"op":"set","path":"listings/randwick-04-b8","data":{"pid":"randwick-04","station":"randwick","block":8,"wants":[9],"status":"open","example":true,"created":"2026-10-21T00:00:00.000Z"}},{"op":"set","path":"listings/bondi-02-b4","data":{"pid":"bondi-02","station":"bondi","block":4,"wants":[5],"status":"open","example":true,"created":"2026-10-23T00:00:00.000Z"}},{"op":"set","path":"listings/paddington-11-b10","data":{"pid":"paddington-11","station":"paddington","block":10,"wants":[5,9,13],"status":"open","example":true,"created":"2026-10-21T00:00:00.000Z"}},{"op":"set","path":"listings/sac-21-b10","data":{"pid":"sac-21","station":"sac","block":10,"wants":[17,9,5],"status":"open","example":true,"created":"2026-10-20T00:00:00.000Z"}},{"op":"set","path":"listings/snaghill-03-b9","data":{"pid":"snaghill-03","station":"snaghill","block":9,"wants":[5],"status":"open","example":true,"created":"2026-10-23T00:00:00.000Z"}},{"op":"set","path":"listings/sac-03-b11","data":{"pid":"sac-03","station":"sac","block":11,"wants":[9],"status":"open","example":true,"created":"2026-10-26T00:00:00.000Z"}},{"op":"set","path":"listings/sac-17-b13","data":{"pid":"sac-17","station":"sac","block":13,"wants":[17],"status":"open","example":true,"created":"2026-10-24T00:00:00.000Z"}},{"op":"set","path":"listings/bondi-14-b14","data":{"pid":"bondi-14","station":"bondi","block":14,"wants":[13,17,9],"status":"open","example":true,"created":"2026-10-21T00:00:00.000Z"}},{"op":"set","path":"listings/maroubra-07-b8","data":{"pid":"maroubra-07","station":"maroubra","block":8,"wants":[5],"status":"open","example":true,"created":"2026-10-26T00:00:00.000Z"}},{"op":"set","path":"listings/randwick-32-b14","data":{"pid":"randwick-32","station":"randwick","block":14,"wants":[9,17,13],"status":"open","example":true,"created":"2026-10-23T00:00:00.000Z"}},{"op":"set","path":"listings/snaghill-04-b14","data":{"pid":"snaghill-04","station":"snaghill","block":14,"wants":[17,13,9],"status":"open","example":true,"created":"2026-10-23T00:00:00.000Z"}},{"op":"set","path":"listings/bondi-01-b13","data":{"pid":"bondi-01","station":"bondi","block":13,"wants":[17,9,4],"status":"open","example":true,"created":"2026-10-22T00:00:00.000Z"}},{"op":"set","path":"listings/snaghill-19-b4","data":{"pid":"snaghill-19","station":"snaghill","block":4,"wants":[5],"status":"open","example":true,"created":"2026-10-26T00:00:00.000Z"}},{"op":"set","path":"listings/mascot-31-b6","data":{"pid":"mascot-31","station":"mascot","block":6,"wants":[9,17],"status":"open","example":true,"created":"2026-10-20T00:00:00.000Z"}},{"op":"set","path":"listings/snaghill-06-b11","data":{"pid":"snaghill-06","station":"snaghill","block":11,"wants":[5,9],"status":"open","example":true,"created":"2026-10-23T00:00:00.000Z"}},{"op":"set","path":"listings/maroubra-04-b10","data":{"pid":"maroubra-04","station":"maroubra","block":10,"wants":[5,13,9],"status":"open","example":true,"created":"2026-10-26T00:00:00.000Z"}},{"op":"set","path":"listings/binchicken-12-b6","data":{"pid":"binchicken-12","station":"binchicken","block":6,"wants":[13,9],"status":"open","example":true,"created":"2026-10-19T00:00:00.000Z"}},{"op":"set","path":"listings/sac-40-b16","data":{"pid":"sac-40","station":"sac","block":16,"wants":[13,9],"status":"open","example":true,"created":"2026-10-23T00:00:00.000Z"}},{"op":"set","path":"listings/bondi-24-b5","data":{"pid":"bondi-24","station":"bondi","block":5,"wants":[9,17],"status":"open","example":true,"created":"2026-10-23T00:00:00.000Z"}},{"op":"set","path":"listings/snaghill-13-b16","data":{"pid":"snaghill-13","station":"snaghill","block":16,"wants":[5,9,13],"status":"open","example":true,"created":"2026-10-24T00:00:00.000Z"}},{"op":"set","path":"listings/central-38-b15","data":{"pid":"central-38","station":"central","block":15,"wants":[5,17],"status":"open","example":true,"created":"2026-10-21T00:00:00.000Z"}}];
+/* ---- Shared data generator (made-up staff, deterministic) ---- */
+var NBLOCKS = 17;
+var YEAR_START = [2027, 0, 16]; // Saturday 16 Jan 2027
+var PEAK = { 1: 'Summer holidays', 5: 'Easter holidays', 9: 'July holidays', 13: 'Spring holidays', 17: 'Christmas' };
+var STATIONS = [
+  { id: 'bondi', name: 'Bondi', n: 30 },
+  { id: 'randwick', name: 'Randwick', n: 32 },
+  { id: 'sac', name: 'SAC', n: 40 },
+  { id: 'maroubra', name: 'Maroubra', n: 28 },
+  { id: 'mascot', name: 'Mascot', n: 31 },
+  { id: 'central', name: 'Central', n: 38 },
+  { id: 'paddington', name: 'Paddington', n: 35 },
+  { id: 'binchicken', name: 'Bin Chicken Bay', n: 26 },
+  { id: 'snaghill', name: 'Snag Hill', n: 27 },
+  { id: 'wobbly', name: 'Wobbly Gully', n: 29 }
+];
+var FIRST = ['Ava','Liam','Mia','Noah','Zoe','Jack','Ruby','Oscar','Ella','Leo','Chloe','Hamish','Isla','Tom','Grace','Ned','Maya','Kai','Lucy','Finn','Priya','Raj','Mei','Tariq','Sofia','Luca','Hannah','Ben','Jess','Sam','Aisha','Dan','Nina','Josh','Kate','Will','Ana','Omar','Tess','Ari','Bree','Cal','Dee','Eli','Fern','Gus','Hugo','Ivy'];
+var LAST = ['Abbott','Barker','Chen','Dawson','Ellis','Fong','Gallagher','Hughes','Ibrahim','Jensen','Kowalski','Lam','Murphy','Nguyen','OConnell','Patel','Quinn','Rossi','Singh','Tran','Usman','Vella','Walsh','Xu','Young','Zammit','Brennan','Costa','Doyle','Evans','Fraser','Grant','Hale','Ivers','Kerr','Lowe','Mason','Nash','Ortiz','Pike'];
+
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; var t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function shuffle(arr, rnd) { for (var i = arr.length - 1; i > 0; i--) { var j = Math.floor(rnd() * (i + 1)); var t = arr[i]; arr[i] = arr[j]; arr[j] = t; } return arr; }
+
+function buildStaff() {
+  var rnd = mulberry32(2027), staff = [], used = {};
+  STATIONS.forEach(function (st, si) {
+    var n = st.n, total = 2 * n, base = Math.floor(total / NBLOCKS), extra = total % NBLOCKS, slots = [];
+    for (var b = 1; b <= NBLOCKS; b++) {
+      var c = base + (((b - 1 + si * 5) % NBLOCKS) < extra ? 1 : 0);
+      for (var k = 0; k < c; k++) slots.push(b);
+    }
+    slots.sort(function (x, y) { return x - y; });
+    var pairs = [];
+    for (var i = 0; i < n; i++) pairs.push([slots[i], slots[i + n]]);
+    shuffle(pairs, rnd);
+    for (var p = 0; p < n; p++) {
+      var name;
+      do { name = FIRST[Math.floor(rnd() * FIRST.length)] + ' ' + LAST[Math.floor(rnd() * LAST.length)].replace('OConnell', "O'Connell"); } while (used[name]);
+      used[name] = 1;
+      var r = rnd();
+      var level = p === 0 ? 'Station Officer' : r < 0.07 ? 'ECP' : r < 0.22 ? 'ICP' : 'Paramedic';
+      staff.push({ id: st.id + '-' + String(p + 1).padStart(2, '0'), name: name, station: st.id, level: level, blocks: pairs[p].slice().sort(function (x, y) { return x - y; }) });
+    }
+  });
+  staff.sort(function (a, b) { return a.station === b.station ? a.name.localeCompare(b.name) : 0; });
+  return staff;
+}
+
+function blockStart(b) { return new Date(YEAR_START[0], YEAR_START[1], YEAR_START[2] + 21 * (b - 1)); }
+function blockEnd(b) { return new Date(YEAR_START[0], YEAR_START[1], YEAR_START[2] + 21 * (b - 1) + 20); }
+function blockCutoff(b) { var s = blockStart(b); return new Date(s.getFullYear(), s.getMonth() - 4, s.getDate()); }
+function blockOpen(b, today) { return today.getTime() <= blockCutoff(b).getTime(); }
+
+/* Example pool requests: a few guaranteed 2-way and 3-way loops plus random requests. */
+function buildSampleListings(staff, today, seed) {
+  var rnd = mulberry32(seed || 77), out = [], taken = {};
+  var openBlocks = []; for (var b = 1; b <= NBLOCKS; b++) if (blockOpen(b, today)) openBlocks.push(b);
+  var pool = shuffle(staff.slice(), rnd);
+  function pick(cond) { for (var i = 0; i < pool.length; i++) { var s = pool[i]; if (!taken[s.id] && cond(s)) { taken[s.id] = 1; return s; } } return null; }
+  function add(s, block, wants) { out.push({ pid: s.id, station: s.station, block: block, wants: wants, status: 'open', example: true, created: new Date(today.getTime() - Math.floor(rnd() * 9) * 86400000).toISOString() }); }
+  function ownOpen(s) { return s.blocks.filter(function (x) { return openBlocks.indexOf(x) >= 0; }); }
+  function randOther(s, k, avoid) {
+    var c = shuffle(openBlocks.filter(function (x) { return s.blocks.indexOf(x) < 0 && (avoid || []).indexOf(x) < 0; }), rnd);
+    c.sort(function (x, y) { return (PEAK[y] ? 1 : 0) - (PEAK[x] ? 1 : 0) + (rnd() - 0.5); });
+    return c.slice(0, k);
+  }
+  // 3-way loops: A gives a wants b, B gives b wants c, C gives c wants a
+  for (var t = 0; t < 3; t++) {
+    var A = pick(function (s) { return ownOpen(s).length > 0; }); if (!A) break;
+    var a = ownOpen(A)[0];
+    var B = pick(function (s) { var o = ownOpen(s); return o.length && o[0] !== a && A.blocks.indexOf(o[0]) < 0 && s.blocks.indexOf(a) < 0; }); if (!B) break;
+    var bb = ownOpen(B)[0];
+    var C = pick(function (s) { var o = ownOpen(s); return o.length && o[0] !== a && o[0] !== bb && B.blocks.indexOf(o[0]) < 0 && s.blocks.indexOf(a) < 0 && s.blocks.indexOf(bb) < 0; }); if (!C) break;
+    var c = ownOpen(C)[0];
+    add(A, a, [bb].concat(randOther(A, 1, [bb])));
+    add(B, bb, [c]);
+    add(C, c, randOther(C, 1, [a]).concat([a]));
+  }
+  // 2-way pairs
+  for (var u = 0; u < 3; u++) {
+    var P = pick(function (s) { return ownOpen(s).length > 0; }); if (!P) break;
+    var p1 = ownOpen(P)[0];
+    var Q = pick(function (s) { var o = ownOpen(s); return o.length && o[0] !== p1 && P.blocks.indexOf(o[0]) < 0 && s.blocks.indexOf(p1) < 0; }); if (!Q) break;
+    var q1 = ownOpen(Q)[0];
+    add(P, p1, [q1]); add(Q, q1, randOther(Q, 1, [p1]).concat([p1]));
+  }
+  // random requests
+  for (var v = 0; v < 26; v++) {
+    var R = pick(function (s) { return ownOpen(s).length > 0; }); if (!R) break;
+    var o = ownOpen(R); var give = o[Math.floor(rnd() * o.length)];
+    add(R, give, randOther(R, 1 + Math.floor(rnd() * 3)));
+  }
+  return out;
+}
+/* ---- end generator ---- */
+
+
+/* ---------- Supabase data layer (same interface the app already uses) ---------- */
+function SupaDB(client) {
+  var cache = {}, subs = {}, started = {};
+  function emit(c) {
+    var m = cache[c] || {};
+    var docs = Object.keys(m).map(function (id) { var v = m[id]; return { id: id, exists: true, data: function () { return v; } }; });
+    (subs[c] || []).forEach(function (f) { f({ docs: docs, size: docs.length, empty: !docs.length }); });
+  }
+  function put(c, id, data) { (cache[c] = cache[c] || {})[id] = data; emit(c); }
+  function drop(c, id) { if (cache[c]) { delete cache[c][id]; } emit(c); }
+  function check(res) { if (res.error) { var e = new Error(res.error.message); e.code = 'unavailable'; throw e; } return res; }
+  function load(c) {
+    return client.from('docs').select('id,data').eq('coll', c).then(check).then(function (res) {
+      var m = {}; (res.data || []).forEach(function (r) { m[r.id] = r.data; }); cache[c] = m; emit(c);
+    });
+  }
+  var live = false;
+  function goLive() { // one channel for the whole table; delete events can't be filtered, so route by row
+    if (live) return; live = true;
+    client.channel('docs-all')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'docs' }, function (p) {
+        var row = p.eventType === 'DELETE' ? p.old : p.new;
+        if (!row || !row.coll || !started[row.coll]) return;
+        if (p.eventType === 'DELETE') drop(row.coll, row.id); else put(row.coll, row.id, row.data);
+      })
+      .subscribe();
+    setInterval(function () { if (!document.hidden) Object.keys(started).forEach(function (c) { load(c).catch(function () {}); }); }, 30000); // safety net
+  }
+  function start(c) {
+    if (started[c]) return; started[c] = true;
+    load(c).catch(function (e) { console.error(e); toast('Could not load shared data. Check config.js and your Supabase setup.'); });
+    goLive();
+  }
+  function doc(path) {
+    var c = path.split('/')[0], id = path.split('/')[1];
+    return {
+      id: id, path: path,
+      get: function () { var v = cache[c] && cache[c][id]; return Promise.resolve({ exists: !!v, data: function () { return v; } }); },
+      set: function (d) { var v = JSON.parse(JSON.stringify(d)); put(c, id, v); return client.from('docs').upsert({ coll: c, id: id, data: v, updated_at: new Date().toISOString() }).then(check); },
+      update: function (d) { var v = deepMerge((cache[c] && cache[c][id]) || {}, d); put(c, id, v); return client.from('docs').upsert({ coll: c, id: id, data: v, updated_at: new Date().toISOString() }).then(check); },
+      delete: function () { drop(c, id); return client.from('docs').delete().eq('coll', c).eq('id', id).then(check); }
+    };
+  }
+  return {
+    doc: doc,
+    collection: function (c) {
+      return {
+        doc: function (id) { return doc(c + '/' + (id || rid())); },
+        onSnapshot: function (fn) { (subs[c] = subs[c] || []).push(fn); start(c); if (cache[c]) setTimeout(function () { emit(c); }, 0); return function () {}; }
+      };
+    },
+    count: function () { return client.from('docs').select('id', { count: 'exact', head: true }).then(check).then(function (r) { return r.count || 0; }); }
+  };
+}
+
+/* ======================= App ======================= */
+var STAFF = buildStaff();
+var BYID = {}; STAFF.forEach(function (s) { BYID[s.id] = s; });
+var STN = {}; STATIONS.forEach(function (s) { STN[s.id] = s; });
+var MAX_LOOP = 5;
+var DEMO_SIM = true; // standalone demo build switches this on
+
+var S = { db: null, live: false, listings: {}, swaps: {}, holdings: {}, rounds: {}, me: null, view: 'my', rosterStation: null, poolBlock: null, editing: null, editWants: [], confirmReset: false, lastResult: null, loaded: false, sim: null, rematch: true };
+
+function ls(k, v) { try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { return null; } }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function today() { var p = ls('lbx-pretend'); var d = p ? new Date(p + 'T00:00:00') : new Date(); return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+function fmt(d, y) { return d.toLocaleDateString('en-AU', y ? { day: 'numeric', month: 'short', year: 'numeric' } : { day: 'numeric', month: 'short' }); }
+function isOpen(b) { return blockOpen(b, today()); }
+function holds(pid) { var h = S.holdings[pid]; return h && h.blocks ? h.blocks.slice() : BYID[pid].blocks.slice(); }
+function stName(id) { return STN[id] ? STN[id].name : id; }
+function pName(pid) { return BYID[pid] ? BYID[pid].name : pid; }
+function daysTo(d) { return Math.round((d - today()) / 86400000); }
+function toast(msg) { var t = document.getElementById('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toast._t); toast._t = setTimeout(function () { t.hidden = true; }, 3200); }
+function rid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+function listingId(pid, b) { return pid + '-b' + b; }
+
+/* ---------- storage: shared db when available, in-memory otherwise ---------- */
+function deepMerge(a, b) { var o = JSON.parse(JSON.stringify(a || {})); Object.keys(b).forEach(function (k) { var v = b[k]; if (v && typeof v === 'object' && !Array.isArray(v) && o[k] && typeof o[k] === 'object' && !Array.isArray(o[k])) o[k] = deepMerge(o[k], v); else o[k] = JSON.parse(JSON.stringify(v)); }); return o; }
+function MemDB() {
+  var KEY = 'lbx-local-fallback-v1', store = {}, subs = {};
+  try { store = JSON.parse(localStorage.getItem(KEY) || 'null') || null; } catch (e) { store = null; }
+  if (!store) { store = {}; (window.SEED || []).forEach(function (o) { store[o.path] = o.data; }); }
+  function persist() { try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) {} }
+  function emit(c) { persist(); var docs = Object.keys(store).filter(function (p) { return p.split('/')[0] === c; }).map(function (p) { var v = store[p]; return { id: p.split('/')[1], exists: true, data: function () { return v; } }; }); (subs[c] || []).forEach(function (f) { f({ docs: docs, size: docs.length, empty: !docs.length }); }); }
+  function doc(path) { var c = path.split('/')[0]; return { id: path.split('/')[1], path: path, get: function () { return Promise.resolve({ exists: !!store[path], data: function () { return store[path]; } }); }, set: function (d) { store[path] = JSON.parse(JSON.stringify(d)); emit(c); return Promise.resolve(); }, update: function (d) { store[path] = deepMerge(store[path], d); emit(c); return Promise.resolve(); }, delete: function () { delete store[path]; emit(c); return Promise.resolve(); } }; }
+  return { doc: doc, collection: function (c) { return { doc: function (id) { return doc(c + '/' + (id || rid())); }, onSnapshot: function (fn) { (subs[c] = subs[c] || []).push(fn); setTimeout(function () { emit(c); }, 0); return function () {}; } }; } };
+}
+function D() { return S.db; }
+function subscribe() {
+  ['listings', 'swaps', 'holdings', 'rounds'].forEach(function (c) {
+    D().collection(c).onSnapshot(function (snap) {
+      var m = {}; snap.docs.forEach(function (d) { if (d.exists) m[d.id] = d.data(); });
+      S[c] = m; S.loaded = true; render();
+    }, function () { toast('Lost connection to shared data. Reload the page.'); });
+  });
+}
+function oops(e) { console.error(e); toast(e && e.code === 'invalid_argument' ? 'You do not have permission to change shared data.' : 'That did not save. Try again.'); }
+
+/* ---------- derived ---------- */
+function openListings() {
+  return Object.keys(S.listings).map(function (k) { var l = S.listings[k]; return Object.assign({ id: k }, l); })
+    .filter(function (l) { return l.status === 'open' && BYID[l.pid] && holds(l.pid).indexOf(l.block) >= 0 && isOpen(l.block); });
+}
+function swapList() { return Object.keys(S.swaps).map(function (k) { return Object.assign({ id: k }, S.swaps[k]); }).sort(function (a, b) { return (b.created || '').localeCompare(a.created || ''); }); }
+function swapState(sw) {
+  if (sw.status !== 'pending') return sw.status;
+  var past = sw.members.some(function (m) { return !isOpen(m.gives) || !isOpen(m.gets); });
+  if (past) return 'expired';
+  var broken = sw.members.some(function (m) { return holds(m.pid).indexOf(m.gives) < 0; });
+  return broken ? 'void' : 'pending';
+}
+function canTake(taker, l) { // can taker (listing or pid with wants) take listing l's block
+  return taker.pid !== l.pid && holds(taker.pid).indexOf(l.block) < 0;
+}
+function myPendingCount() { if (!S.me) return 0; return swapList().filter(function (sw) { return swapState(sw) === 'pending' && sw.members.some(function (m) { return m.pid === S.me; }) && !(sw.accepted || {})[S.me]; }).length; }
+
+/* ---------- matching ---------- */
+function findLoops(nodes) {
+  var idx = {}, adj = nodes.map(function () { return []; });
+  nodes.forEach(function (n, i) { idx[n.id] = i; });
+  nodes.forEach(function (a, i) {
+    nodes.forEach(function (b, j) {
+      if (i === j) return;
+      var r = a.wants.indexOf(b.block);
+      if (r >= 0 && isOpen(b.block) && canTake(a, b)) adj[i].push({ j: j, rank: r });
+    });
+  });
+  var loops = [], LIMIT = 8000, steps = 0, STEP_LIMIT = 600000;
+  for (var s = 0; s < nodes.length && loops.length < LIMIT; s++) {
+    (function dfs(path, ranks, people, blocks) {
+      if (loops.length >= LIMIT || ++steps > STEP_LIMIT) return;
+      var cur = path[path.length - 1];
+      adj[cur].forEach(function (e) {
+        if (e.j === s && path.length >= 2) { loops.push({ nodes: path.slice(), ranks: ranks.concat(e.rank) }); return; }
+        if (e.j <= s || path.length >= MAX_LOOP || path.indexOf(e.j) >= 0) return;
+        var nb = nodes[e.j];
+        if (people[nb.pid] || blocks[nb.block]) return;
+        people[nb.pid] = 1; blocks[nb.block] = 1;
+        dfs(path.concat(e.j), ranks.concat(e.rank), people, blocks);
+        delete people[nb.pid]; delete blocks[nb.block];
+      });
+    })([s], [], (function () { var p = {}; p[nodes[s].pid] = 1; return p; })(), (function () { var b = {}; b[nodes[s].block] = 1; return b; })());
+  }
+  return loops;
+}
+function chooseLoops(nodes, loops) {
+  var best = null;
+  var passes = Math.max(20, Math.min(250, Math.floor(400000 / Math.max(1, loops.length))));
+  for (var pass = 0; pass < passes; pass++) {
+    var order = loops.map(function (l) { var avg = l.ranks.reduce(function (a, b) { return a + b; }, 0) / l.ranks.length; return { l: l, k: avg + Math.random() * 0.9 - (pass % 2 ? 0 : l.nodes.length * 0.05) }; })
+      .sort(function (a, b) { return a.k - b.k; });
+    var used = {}, pick = [], people = 0, rankSum = 0;
+    order.forEach(function (o) {
+      var l = o.l;
+      if (l.nodes.some(function (i) { return used[i] || used['p:' + nodes[i].pid]; })) return;
+      l.nodes.forEach(function (i) { used[i] = 1; used['p:' + nodes[i].pid] = 1; });
+      pick.push(l); people += l.nodes.length; rankSum += l.ranks.reduce(function (a, b) { return a + b; }, 0);
+    });
+    if (!best || people > best.people || (people === best.people && rankSum < best.rankSum)) best = { pick: pick, people: people, rankSum: rankSum };
+  }
+  return best || { pick: [], people: 0, rankSum: 0 };
+}
+function runRound() {
+  if (S.busy) return;
+  var nodes = openListings();
+  if (!nodes.length) { toast('The pool is empty.'); return; }
+  setBusy('Finding swaps…');
+  setTimeout(function () { try { runRoundNow(nodes); } catch (e) { setBusy(null); oops(e); } }, 30);
+}
+function runRoundNow(nodes) {
+  var loops = findLoops(nodes);
+  var best = chooseLoops(nodes, loops);
+  var now = new Date().toISOString(), roundId = 'r' + rid(), writes = [];
+  best.pick.forEach(function (l) {
+    var members = l.nodes.map(function (i, k) { var a = nodes[i], next = nodes[l.nodes[(k + 1) % l.nodes.length]]; return { pid: a.pid, gives: a.block, gets: next.block, rank: l.ranks[k] + 1 }; });
+    var swId = 's' + rid();
+    writes.push(function () { return D().doc('swaps/' + swId).set({ kind: 'round', round: roundId, members: members, accepted: {}, status: 'pending', created: now }); });
+    l.nodes.forEach(function (i) { var n = nodes[i]; writes.push(function () { return D().doc('listings/' + n.id).update({ status: 'matched', swapId: swId }); }); });
+  });
+  var sizes = {}; best.pick.forEach(function (l) { sizes[l.nodes.length] = (sizes[l.nodes.length] || 0) + 1; });
+  writes.push(function () { return D().doc('rounds/' + roundId).set({ ran: now, ranBy: S.me || null, offers: nodes.length, loopsFound: loops.length, swaps: best.pick.length, people: best.people, sizes: sizes }); });
+  S.lastResult = { swaps: best.pick.length, people: best.people, offers: nodes.length };
+  return bulk('Saving swaps', writes).then(function () { toast(best.pick.length ? 'Matched ' + best.people + ' people in ' + best.pick.length + ' swaps.' : 'No swaps found this round.'); return best; }, function (e) { oops(e); return best; });
+}
+function seq(fns) { return fns.reduce(function (p, f) { return p.then(f); }, Promise.resolve()); }
+function setBusy(msg) { S.busy = !!msg; var el = document.getElementById('busy'); el.textContent = msg || ''; el.hidden = !msg; document.body.classList.toggle('isbusy', !!msg); }
+function bulk(label, fns) { // run writes 8 at a time with a progress bar message
+  var done = 0, total = fns.length, i = 0;
+  setBusy(label + ' 0 of ' + total + '…');
+  function worker() { if (i >= fns.length) return Promise.resolve(); var f = fns[i++]; return f().then(function () { done++; setBusy(label + ' ' + done + ' of ' + total + '…'); return worker(); }); }
+  var ws = []; for (var k = 0; k < Math.min(8, total); k++) ws.push(worker());
+  return Promise.all(ws).then(function () { setBusy(null); render(); }, function (e) { setBusy(null); render(); throw e; });
+}
+
+/* ---------- actions ---------- */
+function saveListing(block, wants) {
+  if (!wants.length) { toast('Pick at least one block you would take.'); return; }
+  var me = BYID[S.me];
+  D().doc('listings/' + listingId(S.me, block)).set({ pid: S.me, station: me.station, block: block, wants: wants, status: 'open', created: new Date().toISOString() })
+    .then(function () { S.editing = null; S.editWants = []; toast('Block ' + block + ' is in the pool.'); render(); }).catch(oops);
+}
+function withdraw(block) { D().doc('listings/' + listingId(S.me, block)).delete().then(function () { toast('Block ' + block + ' withdrawn from the pool.'); }).catch(oops); }
+function proposeDirect(myBlock, lid) {
+  var l = S.listings[lid]; if (!l || l.status !== 'open') { toast('That offer has just been taken.'); return; }
+  var swId = 's' + rid(), now = new Date().toISOString(), acc = {}; acc[S.me] = true;
+  var members = [{ pid: S.me, gives: myBlock, gets: l.block, rank: null }, { pid: l.pid, gives: l.block, gets: myBlock, rank: l.wants.indexOf(myBlock) + 1 }];
+  var w = [function () { return D().doc('swaps/' + swId).set({ kind: 'direct', members: members, accepted: acc, status: 'pending', created: now }); },
+    function () { return D().doc('listings/' + lid).update({ status: 'matched', swapId: swId }); }];
+  var mine = S.listings[listingId(S.me, myBlock)];
+  if (mine && mine.status === 'open') w.push(function () { return D().doc('listings/' + listingId(S.me, myBlock)).update({ status: 'matched', swapId: swId }); });
+  seq(w).then(function () { toast('Swap proposed. ' + pName(l.pid) + ' needs to accept.'); location.hash = '#swaps'; }).catch(oops);
+}
+function declinedBy(sw) { return [].concat(sw.declinedBy || []); }
+function finalizeWrites(swId, cur, hold) { // hold: optional running map of holdings during a batch
+  var w = [];
+  cur.members.forEach(function (m) {
+    var base = hold && hold[m.pid] ? hold[m.pid] : holds(m.pid);
+    var nb = base.map(function (b) { return b === m.gives ? m.gets : b; }).sort(function (a, b) { return a - b; });
+    if (hold) hold[m.pid] = nb;
+    w.push(function () { return D().doc('holdings/' + m.pid).set({ blocks: nb, updated: new Date().toISOString() }); });
+    w.push(function () { return D().doc('listings/' + listingId(m.pid, m.gives)).delete(); });
+  });
+  w.push(function () { return D().doc('swaps/' + swId).update({ status: 'agreed', agreedAt: new Date().toISOString() }); });
+  return w;
+}
+function declineWrites(swId, sw, decliners, accepters) {
+  var acc = {}; (accepters || []).forEach(function (p) { acc[p] = true; });
+  var w = [function () { return D().doc('swaps/' + swId).update({ status: 'declined', declinedBy: decliners, declinedAt: new Date().toISOString(), accepted: acc }); }];
+  sw.members.forEach(function (m) {
+    var lid = listingId(m.pid, m.gives); if (!S.listings[lid]) return;
+    if (decliners.indexOf(m.pid) >= 0) w.push(function () { return D().doc('listings/' + lid).delete(); }); // decliners leave the pool
+    else w.push(function () { return D().doc('listings/' + lid).update({ status: 'open', swapId: null }); }); // everyone else goes straight back in
+  });
+  return w;
+}
+function accept(swId) {
+  var sw = S.swaps[swId]; if (!sw) return;
+  var acc = {}; acc[S.me] = true;
+  D().doc('swaps/' + swId).update({ accepted: acc }).then(function () { return D().doc('swaps/' + swId).get(); }).then(function (snap) {
+    var cur = snap.data(); var all = cur.members.every(function (m) { return (cur.accepted || {})[m.pid]; });
+    if (!all) { toast('Accepted. Waiting on the others.'); return; }
+    var bad = cur.members.some(function (m) { return holds(m.pid).indexOf(m.gives) < 0; });
+    if (bad) return D().doc('swaps/' + swId).update({ status: 'void' }).then(function () { toast('Someone no longer holds their block. Swap cancelled.'); });
+    return seq(finalizeWrites(swId, cur)).then(function () { toast('Swap agreed by everyone. Now get manager approval.'); });
+  }).catch(oops);
+}
+function decline(swId) {
+  var sw = S.swaps[swId]; if (!sw) return;
+  var acc = Object.keys(sw.accepted || {}).filter(function (p) { return p !== S.me; });
+  seq(declineWrites(swId, sw, [S.me], acc)).then(function () { toast('Declined. Everyone else is back in the pool. Offer your block again if you want to rejoin.'); }).catch(oops);
+}
+
+/* ---------- demo: simulate everyone's responses ---------- */
+function simulate(mode, onlyId) {
+  if (S.busy) return;
+  var list = swapList().filter(function (sw) { return swapState(sw) === 'pending' && (!onlyId || sw.id === onlyId); });
+  if (!list.length) { toast('No swaps are waiting for responses.'); return; }
+  var hold = {}, w = [], res = { agreed: 0, agreedPeople: 0, failed: 0, decliners: [], released: [], accepted: [] };
+  list.forEach(function (sw) {
+    var pids = sw.members.map(function (m) { return m.pid; });
+    var dec = [];
+    if (mode === 'decline') dec = [pids[Math.floor(Math.random() * pids.length)]];
+    else if (mode === 'mixed' && Math.random() < 0.45) {
+      var k = pids.length >= 4 && Math.random() < 0.3 ? 2 : 1;
+      dec = pids.slice().sort(function () { return Math.random() - 0.5; }).slice(0, k);
+    }
+    if (!dec.length) {
+      var acc = {}; pids.forEach(function (p) { acc[p] = true; });
+      w.push(function () { return D().doc('swaps/' + sw.id).update({ accepted: acc }); });
+      w = w.concat(finalizeWrites(sw.id, { members: sw.members }, hold));
+      res.agreed++; res.agreedPeople += pids.length;
+    } else {
+      var others = pids.filter(function (p) { return dec.indexOf(p) < 0; });
+      w = w.concat(declineWrites(sw.id, sw, dec, others));
+      res.failed++; res.decliners = res.decliners.concat(dec); res.released = res.released.concat(others);
+    }
+  });
+  // finalize writes must run in order per swap, so run this batch one write at a time
+  setBusy('Recording responses…');
+  seq(w).then(function () {
+    setBusy(null);
+    S.sim = res; render();
+    if (S.rematch && res.released.length) {
+      var nodes = openListings();
+      setBusy('Re-matching ' + res.released.length + ' people who went back in the pool…');
+      setTimeout(function () {
+        runRoundNow(nodes).then(function (best) {
+          var again = {}; (best ? best.pick : []).forEach(function (l) { l.nodes.forEach(function (i) { again[nodes[i].pid] = 1; }); });
+          S.sim = Object.assign({}, res, { rematched: res.released.filter(function (p) { return again[p]; }), rematchSwaps: best ? best.pick.length : 0, rematchPeople: best ? best.people : 0 });
+          render();
+        });
+      }, 30);
+    } else toast(res.agreed + ' agreed, ' + res.failed + ' failed.');
+  }).catch(function (e) { setBusy(null); oops(e); });
+}
+function cleanupDead() { // release listings tied to expired or void swaps, once, by whoever sees them
+  swapList().forEach(function (sw) {
+    var st = swapState(sw);
+    if ((st === 'expired' || st === 'void') && sw.status === 'pending' && !cleanupDead.done[sw.id]) {
+      cleanupDead.done[sw.id] = 1;
+      var w = [function () { return D().doc('swaps/' + sw.id).update({ status: st }); }];
+      sw.members.forEach(function (m) { var lid = listingId(m.pid, m.gives); if (S.listings[lid] && S.listings[lid].swapId === sw.id) w.push(function () { return D().doc('listings/' + lid).update({ status: 'open', swapId: null }); }); });
+      seq(w).catch(function () {});
+    }
+  });
+}
+cleanupDead.done = {};
+function loadSamples() {
+  var existing = {}; Object.keys(S.listings).forEach(function (k) { existing[S.listings[k].pid] = 1; });
+  var seed = Math.floor(Math.random() * 1e6);
+  var list = buildSampleListings(STAFF.filter(function (s) { return s.id !== S.me && !existing[s.id]; }).map(function (s) { return Object.assign({}, s, { blocks: holds(s.id) }); }), today(), seed);
+  if (S.busy) return;
+  bulk('Adding example requests', list.map(function (l) { return function () { return D().doc('listings/' + listingId(l.pid, l.block)).set(l); }; }))
+    .then(function () { toast(list.length + ' example requests added to the pool.'); }).catch(oops);
+}
+function resetAll() {
+  var w = [];
+  ['listings', 'swaps', 'holdings', 'rounds'].forEach(function (c) { Object.keys(S[c]).forEach(function (id) { w.push(function () { return D().doc(c + '/' + id).delete(); }); }); });
+  S.confirmReset = false;
+  if (S.busy) return;
+  bulk('Clearing', w).then(function () { toast('Everything cleared. Rosters are back to the approved 2027 roster.'); }).catch(oops);
+}
+
+/* ---------- rendering helpers ---------- */
+function blockRange(b) { return fmt(blockStart(b)) + ' to ' + fmt(blockEnd(b), true); }
+function blockChip(b) { return '<span class="chip ' + (PEAK[b] ? 'peak' : 'blue') + '"><span class="bk">B' + b + '</span> ' + fmt(blockStart(b)) + '</span>'; }
+function cutoffLine(b) {
+  var c = blockCutoff(b), d = daysTo(c);
+  if (d < 0) return '<span class="chip">Locked since ' + fmt(c, true) + '</span>';
+  if (d <= 21) return '<span class="chip warn">Swaps close ' + fmt(c, true) + ' (' + (d === 0 ? 'today' : d + ' days') + ')</span>';
+  return '<span class="chip ok">Swaps close ' + fmt(c, true) + '</span>';
+}
+function stripCells(opts) {
+  var h = '';
+  for (var b = 1; b <= NBLOCKS; b++) {
+    var cls = ['cell']; if (PEAK[b]) cls.push('peak'); if (!isOpen(b)) cls.push('locked');
+    var extra = opts && opts.cell ? opts.cell(b) : {};
+    if (extra.cls) cls.push(extra.cls);
+    var tag = extra.button ? 'button' : 'div';
+    h += '<' + tag + ' class="' + cls.join(' ') + '"' + (extra.button ? ' type="button" data-act="' + extra.button + '" data-b="' + b + '"' + (extra.disabled ? ' disabled' : '') : '') + ' title="Block ' + b + ': ' + blockRange(b) + (PEAK[b] ? ' (' + PEAK[b] + ')' : '') + (isOpen(b) ? '' : ' · locked') + '">' +
+      '<span class="n">' + b + '</span><span class="d">' + fmt(blockStart(b)) + '</span>' + (extra.html || '') + '</' + tag + '>';
+  }
+  return '<div class="strip-scroll"><div class="strip">' + h + '</div></div>';
+}
+function swapCard(sw, opts) {
+  var st = swapState(sw), meIn = sw.members.some(function (m) { return m.pid === S.me; });
+  var cls = st === 'pending' ? 'pending' : st === 'agreed' ? 'agreed' : 'dead';
+  var stChip = { pending: '<span class="chip warn">Waiting on ' + sw.members.filter(function (m) { return !(sw.accepted || {})[m.pid]; }).length + ' to accept</span>', agreed: '<span class="chip ok">Agreed · needs manager approval</span>', declined: '<span class="chip red">Declined by ' + esc(declinedBy(sw).map(pName).join(', ')) + '</span>', expired: '<span class="chip">Expired at cutoff</span>', void: '<span class="chip">Cancelled</span>' }[st] || '';
+  var kind = sw.kind === 'direct' ? 'Direct swap' : sw.members.length + '-way swap';
+  var h = '<div class="item ' + cls + '"><div class="spread"><div class="row"><h3>' + kind + '</h3>' + stChip + '</div><span class="small muted">' + (sw.kind === 'round' ? 'Matching round, ' : 'Proposed ') + fmt(new Date(sw.created), true) + '</span></div><div class="chain">';
+  sw.members.forEach(function (m) {
+    var p = BYID[m.pid], ok = (sw.accepted || {})[m.pid];
+    h += '<div class="link' + (m.pid === S.me ? ' me' : '') + '"><div style="min-width:0"><strong>' + esc(p.name) + '</strong> <span class="small muted">' + esc(stName(p.station)) + '</span>' + (st === 'pending' ? ' <span class="small">' + (ok ? '✓ accepted' : '· waiting') + '</span>' : st === 'declined' ? ' <span class="small">' + (declinedBy(sw).indexOf(m.pid) >= 0 ? '<span style="color:var(--accent)">✗ declined, left the pool</span>' : (ok ? '✓ accepted, ' : '') + 'back in the pool') + '</span>' : '') + '</div>' +
+      '<div class="arrow">B' + m.gives + ' → B' + m.gets + (m.rank ? ' <span class="muted">(choice ' + m.rank + ')</span>' : '') + '</div></div>';
+  });
+  h += '</div>';
+  var eff = stationEffect(sw);
+  if (eff) h += '<div class="small muted">Station headcount change: ' + eff + '</div>';
+  if (meIn && st === 'pending' && !(sw.accepted || {})[S.me]) h += '<div class="row"><button class="ok" data-act="accept" data-id="' + sw.id + '">Accept swap</button><button data-act="decline" data-id="' + sw.id + '">Decline</button><span class="small muted">The swap is final once everyone accepts.</span></div>';
+  if (DEMO_SIM && st === 'pending') h += '<div class="row small"><span class="label">Demo</span><button data-act="simall" data-id="' + sw.id + '">Everyone accepts</button><button data-act="simdec" data-id="' + sw.id + '">Someone declines</button></div>';
+  if (meIn && st === 'agreed') h += '<div class="row"><button data-act="copy" data-id="' + sw.id + '">Copy approval request</button><span class="small muted">Send it to your manager. The award needs NSW Ambulance approval for leave exchanges.</span></div>';
+  return h + '</div>';
+}
+function stationEffect(sw) {
+  var d = {};
+  sw.members.forEach(function (m) { var s = BYID[m.pid].station; d[s] = d[s] || {}; d[s][m.gives] = (d[s][m.gives] || 0) - 1; d[s][m.gets] = (d[s][m.gets] || 0) + 1; });
+  var parts = [];
+  Object.keys(d).forEach(function (s) { var bits = Object.keys(d[s]).filter(function (b) { return d[s][b]; }).map(function (b) { return 'B' + b + ' ' + (d[s][b] > 0 ? '+' : '−') + Math.abs(d[s][b]); }); if (bits.length) parts.push(esc(stName(s)) + ' ' + bits.join(', ')); });
+  return parts.join(' · ');
+}
+function approvalText(sw) {
+  var me = sw.members.filter(function (m) { return m.pid === S.me; })[0]; var p = BYID[S.me];
+  var lines = ['Annual leave exchange: request for approval', '', 'Name: ' + p.name + ' (' + stName(p.station) + ', ' + p.level + ')',
+    'Giving up: Block ' + me.gives + ', ' + blockRange(me.gives), 'Taking: Block ' + me.gets + ', ' + blockRange(me.gets), '',
+    'This is a ' + sw.members.length + '-person exchange agreed by all parties on ' + fmt(new Date(sw.agreedAt || sw.created), true) + ':'];
+  sw.members.forEach(function (m) { var q = BYID[m.pid]; lines.push('- ' + q.name + ' (' + stName(q.station) + '): Block ' + m.gives + ' to Block ' + m.gets); });
+  lines.push('', 'Swap deadline (4 months before the earliest block): ' + fmt(new Date(Math.min.apply(null, sw.members.map(function (m) { return blockCutoff(Math.min(m.gives, m.gets)).getTime(); }))), true));
+  return lines.join('\n');
+}
+
+/* ---------- views ---------- */
+function vMy() {
+  if (!S.me) return '<div class="view"><div class="empty">Choose a station and paramedic at the top to see their leave.</div></div>';
+  var p = BYID[S.me], mine = holds(S.me), orig = p.blocks;
+  var h = '<div class="view"><div><h2>' + esc(p.name) + '</h2><p class="lede">' + esc(p.level) + ' at ' + esc(stName(p.station)) + '. You hold two 3-week blocks. Offer one to the pool and say which blocks you would take instead, in order of preference.</p></div>';
+  h += '<div class="panel">' + stripCells({ cell: function (b) { return mine.indexOf(b) >= 0 ? { cls: 'mine' } : {}; } }) + '<div class="legend" style="margin-top:8px"><span><i style="background:var(--leave)"></i>Your leave</span><span><i style="background:var(--peak)"></i>School holidays / Christmas</span><span><i style="background:var(--off-soft)"></i>Faded = past the 4-month cutoff</span></div></div>';
+  var pend = swapList().filter(function (sw) { return swapState(sw) === 'pending' && sw.members.some(function (m) { return m.pid === S.me; }); });
+  if (pend.length) h += '<div class="list"><h3>Swaps waiting on you</h3>' + pend.map(function (sw) { return swapCard(sw); }).join('') + '</div>';
+  h += '<div class="blocks">';
+  mine.forEach(function (b) {
+    var l = S.listings[listingId(S.me, b)], open = isOpen(b);
+    h += '<div class="bcard"><div class="spread"><div><div class="label">Block ' + (orig.indexOf(b) < 0 ? '· swapped in' : '') + '</div><div class="big">B' + b + '</div></div><div style="text-align:right">' + (PEAK[b] ? '<span class="chip peak">' + PEAK[b] + '</span>' : '') + '</div></div>';
+    h += '<dl class="facts"><dt>Dates</dt><dd>' + blockRange(b) + '</dd><dt>Swap deadline</dt><dd>' + cutoffLine(b) + '</dd></dl>';
+    if (!open) h += '<div class="note">This block is inside the 4-month cutoff and can no longer be swapped.</div>';
+    else if (S.editing === b) {
+      h += '<div class="label">Tap the blocks you would take, first choice first</div>' + stripCells({ cell: function (x) {
+        var r = S.editWants.indexOf(x), dis = mine.indexOf(x) >= 0 || !isOpen(x);
+        return { button: 'pickwant', disabled: dis, cls: r >= 0 ? 'sel' : (mine.indexOf(x) >= 0 ? 'mine' : ''), html: r >= 0 ? '<span class="rank">' + (r + 1) + '</span>' : '' };
+      } });
+      h += '<div class="small muted">' + (S.editWants.length ? 'Your order: ' + S.editWants.map(function (x, i) { return (i + 1) + '. B' + x; }).join('  ') : 'Nothing picked yet.') + '</div>';
+      h += '<div class="row"><button class="primary" data-act="savelisting" data-b="' + b + '"' + (S.editWants.length ? '' : ' disabled') + '>' + (l ? 'Update offer' : 'Put B' + b + ' in the pool') + '</button><button class="ghost" data-act="canceledit">Cancel</button></div>';
+    } else if (l && l.status === 'matched') {
+      h += '<div class="note info">In a proposed swap. See it above.</div>';
+    } else if (l) {
+      h += '<div class="note info">In the pool. You would take: ' + l.wants.map(function (x, i) { return (i + 1) + '. B' + x; }).join(', ') + '</div><div class="row"><button data-act="edit" data-b="' + b + '">Change choices</button><button class="ghost" data-act="withdraw" data-b="' + b + '">Withdraw</button></div>';
+    } else {
+      var dsw = swapList().filter(function (sw) { return sw.status === 'declined' && declinedBy(sw).indexOf(S.me) >= 0 && sw.members.some(function (m) { return m.pid === S.me && m.gives === b; }); })[0];
+      if (dsw) h += '<div class="note">You declined a swap for B' + b + ' on ' + fmt(new Date(dsw.declinedAt || dsw.created), true) + ', so it was taken out of the pool. Offer it again if you still want to swap.</div>';
+      h += '<div class="row"><button class="primary" data-act="edit" data-b="' + b + '">Offer B' + b + ' for a swap</button></div>';
+    }
+    if (open && !(l && l.status === 'matched')) {
+      var direct = openListings().filter(function (o) { return o.pid !== S.me && o.wants.indexOf(b) >= 0 && canTake({ pid: S.me }, o); });
+      if (direct.length) {
+        h += '<details data-k="d' + b + '"><summary>' + direct.length + ' ' + (direct.length === 1 ? 'person wants' : 'people want') + ' B' + b + ' right now</summary><div class="list" style="margin-top:8px">';
+        direct.slice(0, 12).forEach(function (o) { var q = BYID[o.pid]; h += '<div class="link"><div style="min-width:0"><strong>' + esc(q.name) + '</strong> <span class="small muted">' + esc(stName(q.station)) + '</span><br><span class="small">Gives ' + blockChip(o.block) + '</span></div><button data-act="direct" data-b="' + b + '" data-id="' + o.id + '">Swap</button></div>'; });
+        h += '</div></details>';
+      }
+    }
+    h += '</div>';
+  });
+  h += '</div>';
+  var done = swapList().filter(function (sw) { return swapState(sw) === 'agreed' && sw.members.some(function (m) { return m.pid === S.me; }); });
+  if (done.length) h += '<div class="list"><h3>Agreed swaps</h3>' + done.map(function (sw) { return swapCard(sw); }).join('') + '</div>';
+  return h + '</div>';
+}
+function vPool() {
+  var ol = openListings(), sup = {}, dem = {}, pen = {}, penList = {}, penTotal = 0, max = 1;
+  ol.forEach(function (l) { sup[l.block] = (sup[l.block] || 0) + 1; l.wants.forEach(function (w) { dem[w] = (dem[w] || 0) + 1; }); });
+  swapList().forEach(function (sw) { if (swapState(sw) !== 'pending') return; sw.members.forEach(function (m) { if (!isOpen(m.gives)) return; pen[m.gives] = (pen[m.gives] || 0) + 1; (penList[m.gives] = penList[m.gives] || []).push({ m: m, sw: sw }); penTotal++; }); });
+  for (var b = 1; b <= NBLOCKS; b++) max = Math.max(max, sup[b] || 0, dem[b] || 0, pen[b] || 0);
+  var h = '<div class="view"><div class="spread"><div><h2>Leave pool</h2><p class="lede">' + ol.length + ' blocks on offer across ' + STATIONS.length + ' stations' + (penTotal ? ', plus ' + penTotal + ' tied up in swaps waiting for answers' : '') + '. Pick a block to see who is offering it.</p></div></div>';
+  var bars = '';
+  for (b = 1; b <= NBLOCKS; b++) bars += '<div class="col" title="B' + b + ': ' + (sup[b] || 0) + ' offered, ' + (dem[b] || 0) + ' wanted, ' + (pen[b] || 0) + ' in pending swaps"><div class="b s" style="height:' + ((sup[b] || 0) / max * 100) + '%"></div><div class="b d" style="height:' + ((dem[b] || 0) / max * 100) + '%"></div><div class="b p" style="height:' + ((pen[b] || 0) / max * 100) + '%"></div></div>';
+  h += '<div class="panel"><div class="strip-scroll"><div class="bars" aria-hidden="true">' + bars + '</div>' +
+    stripCells({ cell: function (x) { return { button: 'poolblock', cls: S.poolBlock === x ? 'sel' : '', html: '<span class="d mono">' + (sup[x] || 0) + '·' + (dem[x] || 0) + '·' + (pen[x] || 0) + '</span>' }; } }).replace('<div class="strip-scroll">', '').replace(/<\/div>$/, '') +
+    '</div><div class="legend" style="margin-top:8px"><span><i style="background:var(--leave-ink)"></i>Offered</span><span><i style="background:var(--accent)"></i>Wanted</span><span><i style="background:var(--warn)"></i>In pending swaps</span><span>Numbers under each block: offered · wanted · pending</span></div></div>';
+  var pb = S.poolBlock;
+  if (pb) {
+    var offers = ol.filter(function (l) { return l.block === pb; });
+    var wanters = ol.filter(function (l) { return l.wants.indexOf(pb) >= 0; });
+    h += '<div class="grid2"><div class="panel"><div class="spread"><h3>Offering B' + pb + '</h3>' + cutoffLine(pb) + '</div><p class="small muted" style="margin:4px 0 10px">' + blockRange(pb) + (PEAK[pb] ? ' · ' + PEAK[pb] : '') + '</p><div class="list">';
+    if (!offers.length) h += '<div class="empty">Nobody is offering B' + pb + ' yet.</div>';
+    offers.forEach(function (o) {
+      var q = BYID[o.pid];
+      var myOpts = S.me ? holds(S.me).filter(function (mb) { return o.wants.indexOf(mb) >= 0 && isOpen(mb) && canTake({ pid: S.me }, o) && !(S.listings[listingId(S.me, mb)] && S.listings[listingId(S.me, mb)].status === 'matched'); }) : [];
+      h += '<div class="item"><div class="spread"><div style="min-width:0"><strong>' + esc(q.name) + '</strong> <span class="small muted">' + esc(q.level) + ', ' + esc(stName(q.station)) + '</span></div>' + (o.example ? '<span class="chip">example</span>' : '') + '</div><div class="row small">Would take ' + o.wants.map(blockChip).join(' ') + '</div>' +
+        (myOpts.length ? '<div class="row">' + myOpts.map(function (mb) { return '<button class="primary" data-act="direct" data-b="' + mb + '" data-id="' + o.id + '">Swap my B' + mb + ' for this</button>'; }).join('') + '</div>' : '') + '</div>';
+    });
+    h += '</div></div><div class="panel"><h3>Wanting B' + pb + '</h3><p class="small muted" style="margin:4px 0 10px">' + wanters.length + ' people listed B' + pb + ' as a choice.</p><div class="list">';
+    if (!wanters.length) h += '<div class="empty">No requests for B' + pb + '.</div>';
+    wanters.slice(0, 30).forEach(function (o) { var q = BYID[o.pid]; h += '<div class="link"><div style="min-width:0"><strong>' + esc(q.name) + '</strong> <span class="small muted">' + esc(stName(q.station)) + '</span></div><div class="arrow">gives B' + o.block + ' · choice ' + (o.wants.indexOf(pb) + 1) + '</div></div>'; });
+    h += '</div></div></div>';
+    var pl = penList[pb] || [];
+    h += '<div class="panel"><h3>B' + pb + ' in pending swaps</h3><p class="small muted" style="margin:4px 0 10px">' + (pl.length ? pl.length + ' ' + (pl.length === 1 ? 'person is' : 'people are') + ' giving up B' + pb + ' in a swap that is waiting for answers. If someone in that swap declines, the others come back into the pool.' : 'Nobody is giving up B' + pb + ' in a pending swap.') + '</p>';
+    if (pl.length) h += '<div class="list">' + pl.map(function (x) { var q = BYID[x.m.pid], waiting = x.sw.members.filter(function (m) { return !(x.sw.accepted || {})[m.pid]; }).length; return '<div class="link"><div style="min-width:0"><strong>' + esc(q.name) + '</strong> <span class="small muted">' + esc(stName(q.station)) + '</span></div><div class="arrow">to B' + x.m.gets + ' · ' + x.sw.members.length + '-way · waiting on ' + waiting + '</div></div>'; }).join('') + '</div>';
+    h += '</div>';
+  } else {
+    h += '<div class="empty">Select a block above.</div>';
+  }
+  return h + '</div>';
+}
+function vSwaps() {
+  var all = swapList(), rounds = Object.keys(S.rounds).map(function (k) { return S.rounds[k]; }).sort(function (a, b) { return (b.ran || '').localeCompare(a.ran || ''); });
+  var last = rounds[0];
+  var h = '<div class="view"><div><h2>Swaps</h2><p class="lede">A matching round looks at every offer in the pool and finds loops where everyone gets a block they asked for. In the real app it would run automatically each week. Between rounds, anyone can take a direct 1-for-1 swap, first in best dressed.</p></div>';
+  h += '<div class="panel spread"><div><div class="label">Matching round</div><div>' + (last ? 'Last run ' + fmt(new Date(last.ran), true) + ': matched <strong>' + last.people + '</strong> people in ' + last.swaps + ' swaps from ' + last.offers + ' offers.' : 'No rounds run yet.') + '</div><div class="small muted">' + openListings().length + ' open offers in the pool now. Loops of up to ' + MAX_LOOP + ' people. Ties are settled by random draw.</div></div><button class="primary" data-act="round">Run matching round now</button></div>';
+  if (DEMO_SIM) {
+    var np = all.filter(function (sw) { return swapState(sw) === 'pending'; }).length;
+    h += '<div class="panel" style="border-color:var(--navy)"><div class="spread"><div><div class="label">Demo: simulate responses</div><div class="small muted">Answers for everyone in the ' + np + ' swap' + (np === 1 ? '' : 's') + ' waiting for acceptance. When someone declines, the others go straight back into the pool. Decliners are taken out and must offer their block again themselves.</div></div></div>' +
+      '<div class="row" style="margin-top:10px"><button class="primary" data-act="simmixed"' + (np ? '' : ' disabled') + '>Some accept, some decline</button><button data-act="simallall"' + (np ? '' : ' disabled') + '>Everyone accepts</button>' +
+      '<label class="small row" style="gap:6px"><input type="checkbox" id="rematch"' + (S.rematch ? ' checked' : '') + '> Re-match people sent back to the pool straight away</label></div>';
+    var r = S.sim;
+    if (r) {
+      h += '<div class="note ' + (r.failed ? 'info' : 'ok') + '" style="margin-top:12px"><strong>' + r.agreed + ' swap' + (r.agreed === 1 ? '' : 's') + ' agreed</strong> (' + r.agreedPeople + ' people). <strong>' + r.failed + ' failed</strong>' + (r.failed ? ': ' + r.decliners.length + ' declined and left the pool, ' + r.released.length + ' went back into the pool.' : '.') +
+        (r.rematched ? ' Re-match: ' + r.rematched.length + ' of the ' + r.released.length + ' got a new swap (' + r.rematchSwaps + ' new swap' + (r.rematchSwaps === 1 ? '' : 's') + ' waiting for acceptance).' : '') + '</div>';
+      if (r.decliners.length) h += '<details data-k="simdetail" style="margin-top:8px"><summary class="small">Who declined and who went back</summary><div class="grid2 small" style="margin-top:6px"><div><div class="label">Declined, out of the pool</div>' + r.decliners.map(function (p) { return esc(pName(p)) + ' <span class="muted">' + esc(stName(BYID[p].station)) + '</span>'; }).join('<br>') + '</div><div><div class="label">Back in the pool</div>' + r.released.map(function (p) { return esc(pName(p)) + ' <span class="muted">' + esc(stName(BYID[p].station)) + '</span>' + (r.rematched && r.rematched.indexOf(p) >= 0 ? ' <span class="chip ok">re-matched</span>' : ''); }).join('<br>') + '</div></div></details>';
+    }
+    h += '</div>';
+  }
+  var groups = [['pending', 'Waiting for acceptance'], ['agreed', 'Agreed'], ['other', 'Declined, expired or cancelled']];
+  groups.forEach(function (g) {
+    var items = all.filter(function (sw) { var st = swapState(sw); return g[0] === 'other' ? (st !== 'pending' && st !== 'agreed') : st === g[0]; });
+    if (!items.length && g[0] === 'other') return;
+    h += '<div class="list"><h3>' + g[1] + ' <span class="muted small">(' + items.length + ')</span></h3>' + (items.length ? items.map(function (sw) { return swapCard(sw); }).join('') : '<div class="empty">None yet.</div>') + '</div>';
+  });
+  return h + '</div>';
+}
+function vRoster() {
+  var sid = S.rosterStation || (S.me ? BYID[S.me].station : 'paddington');
+  var staff = STAFF.filter(function (s) { return s.station === sid; });
+  var h = '<div class="view"><div class="spread"><div><h2>' + esc(stName(sid)) + ' 2027</h2><p class="lede">Approved roster with agreed swaps applied. Green is leave swapped in, struck-through is leave swapped out, a red outline is a block offered in the pool.</p></div><div><label class="label" for="rosterSel">Station</label><br><select id="rosterSel">' + STATIONS.map(function (s) { return '<option value="' + s.id + '"' + (s.id === sid ? ' selected' : '') + '>' + esc(s.name) + '</option>'; }).join('') + '</select></div></div>';
+  h += '<div class="table-scroll"><table class="roster"><thead><tr><th>Name</th>';
+  for (var b = 1; b <= NBLOCKS; b++) h += '<th class="' + (PEAK[b] ? 'peak' : '') + '" title="' + blockRange(b) + '">B' + b + '<div class="small muted" style="font-family:var(--f-body);font-weight:400">' + fmt(blockStart(b)) + '</div></th>';
+  h += '</tr></thead><tbody>';
+  var counts = {}, sector = {};
+  STAFF.forEach(function (s) { holds(s.id).forEach(function (x) { sector[x] = (sector[x] || 0) + 1; }); });
+  staff.forEach(function (s) {
+    var cur = holds(s.id);
+    h += '<tr' + (s.id === S.me ? ' style="font-weight:700"' : '') + '><td>' + esc(s.name) + '<span class="lvl">' + esc(s.level) + '</span></td>';
+    for (var b2 = 1; b2 <= NBLOCKS; b2++) {
+      var on = cur.indexOf(b2) >= 0, was = s.blocks.indexOf(b2) >= 0, cls = [], txt = '';
+      if (on) { counts[b2] = (counts[b2] || 0) + 1; cls.push(was ? 'on' : 'in'); txt = 'A'; } else if (was) { cls.push('out'); txt = 'A'; }
+      var l = S.listings[listingId(s.id, b2)]; if (on && l && l.status !== 'withdrawn') cls.push('listed');
+      h += '<td class="' + cls.join(' ') + '">' + txt + '</td>';
+    }
+    h += '</tr>';
+  });
+  h += '</tbody><tfoot><tr><td>On leave at ' + esc(stName(sid)) + '</td>';
+  for (b = 1; b <= NBLOCKS; b++) h += '<td>' + (counts[b] || 0) + '</td>';
+  h += '</tr><tr><td>Sector total</td>';
+  for (b = 1; b <= NBLOCKS; b++) h += '<td>' + (sector[b] || 0) + '</td>';
+  h += '</tr></tfoot></table></div></div>';
+  return h;
+}
+function vHow() {
+  var t = today(), pretend = ls('lbx-pretend');
+  var h = '<div class="view how"><div><h2>How it works</h2><p class="lede">A prototype for swapping whole blocks of annual leave across ' + STATIONS.length + ' stations in the sector. Staff, names and rosters are made up; the block pattern copies the real 2027 roster.</p></div>';
+  h += '<div class="grid2"><div class="panel"><h3>The rules built in</h3><ul>' +
+    '<li>2027 has 17 blocks of 3 weeks, starting Saturday 16 Jan 2027. Everyone holds two.</li>' +
+    '<li>Only whole blocks can be swapped for now. Shorter periods can come later, when leave can be taken in 1-week periods.</li>' +
+    '<li>Swaps close 4 months before a block starts. After that the block is locked, and any unfinished swap involving it expires.</li>' +
+    '<li>Swaps can cross stations. Every swap is a loop, so the number of people on leave across the sector never changes in any block.</li>' +
+    '<li>A swap is only final when every person in the loop accepts. Then each person asks their own manager to approve it, as the award requires.</li></ul></div>';
+  h += '<div class="panel"><h3>Getting a block</h3><ol>' +
+    '<li><strong>Offer</strong> one of your blocks and pick the blocks you would take, in order.</li>' +
+    '<li><strong>Matching round</strong>: the system finds loops of 2 to ' + MAX_LOOP + ' people where everyone gets one of their choices, matching as many people as possible. Ties go to a random draw.</li>' +
+    '<li><strong>Direct swap</strong>: between rounds, if someone is offering a block you want and they would take one of yours, you can propose a 1-for-1 swap straight away.</li>' +
+    '<li><strong>Accept</strong> within the swap. Decline and you leave the pool; everyone else goes back in.</li></ol></div></div>';
+  h += '<div class="panel"><h3>Open questions for the group</h3><ul><li>Should matching rounds run weekly, fortnightly, or on set dates before each cutoff?</li><li>Should someone who got a peak block (school holidays, Christmas) last year lose tiebreaks this year?</li><li>Is there a limit on how many people from one station can be off in the same block, even with sector flexibility?</li><li>Who runs the app and holds the data once it is real?</li></ul></div>';
+  h += '<div class="panel"><h3>Demo tools</h3><p class="small muted">For testing only. Changes here affect everyone using this page.</p><div class="grid2" style="margin-top:10px"><div><label class="label" for="pretend">Pretend today is</label><div class="row" style="margin-top:4px"><input type="date" id="pretend" value="' + (pretend || '') + '"><button data-act="clearpretend"' + (pretend ? '' : ' disabled') + '>Use real date</button></div><div class="small muted" style="margin-top:4px">Now using ' + fmt(t, true) + '. Only changes your view.</div></div>' +
+    '<div><div class="label">Pool data</div><div class="row" style="margin-top:4px"><button data-act="samples">Add 40 example requests</button>' + (S.confirmReset ? '<button class="primary" data-act="reset">Yes, clear everything</button><button class="ghost" data-act="noreset">Keep</button>' : '<button data-act="askreset">Clear all swaps and offers</button>') + '</div></div></div></div>';
+  h += '<p class="small muted">Not legal advice. Award references: clause 32 (annual leave, exchanges need NSW Ambulance approval) and clause 25 (rosters).</p>';
+  return h + '</div>';
+}
+
+var _rq = false, _down = false, _pending = false;
+function render() { if (_rq) return; _rq = true; requestAnimationFrame(function () { _rq = false; if (_down) { _pending = true; return; } paint(); }); }
+document.addEventListener('pointerdown', function () { _down = true; }, true);
+document.addEventListener('pointerup', function () { _down = false; if (_pending) { _pending = false; setTimeout(render, 0); } }, true);
+document.addEventListener('pointercancel', function () { _down = false; if (_pending) { _pending = false; render(); } }, true);
+function paint() {
+  try { paintInner(); } catch (err) {
+    console.error(err);
+    document.getElementById('main').innerHTML = '<div class="note">Something went wrong drawing this screen: ' + esc(err && err.message) + '. Try another tab, or reload the page.</div>';
+  }
+}
+function paintInner() {
+  if (!S.busy) cleanupDead();
+  var v = S.view, main = document.getElementById('main');
+  document.querySelectorAll('nav.tabs a').forEach(function (a) { if (a.dataset.v === v) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
+  var n = myPendingCount(), bd = document.getElementById('myBadge'); bd.hidden = !n; bd.textContent = n;
+  var body = v === 'pool' ? vPool() : v === 'swaps' ? vSwaps() : v === 'roster' ? vRoster() : v === 'how' ? vHow() : vMy();
+  if (S.setupNeeded) body = '<div class="note" style="margin-bottom:14px"><strong>Not connected to the shared database.</strong> ' + esc(S.setupNeeded) + ' Until then, changes are saved in this browser only.</div>' + body;
+  else if (S.live) body = '<div class="note info" style="margin-bottom:14px">Demo with made-up staff. Everyone using this link shares the same data, and anyone can act as anyone.</div>' + body;
+  if (body === S._lastBody) return;
+  var open = {}; main.querySelectorAll('details[data-k]').forEach(function (d) { if (d.open) open[d.dataset.k] = 1; });
+  S._lastBody = body; main.innerHTML = body;
+  main.querySelectorAll('details[data-k]').forEach(function (d) { if (open[d.dataset.k]) d.open = true; });
+}
+
+/* ---------- identity picker ---------- */
+function fillPeople() {
+  var st = document.getElementById('asStation').value, ps = document.getElementById('asPerson');
+  ps.innerHTML = '<option value="">Choose a paramedic</option>' + STAFF.filter(function (s) { return s.station === st; }).map(function (s) { return '<option value="' + s.id + '"' + (s.id === S.me ? ' selected' : '') + '>' + esc(s.name) + '</option>'; }).join('');
+}
+function initPicker() {
+  var ss = document.getElementById('asStation');
+  ss.innerHTML = STATIONS.map(function (s) { return '<option value="' + s.id + '">' + esc(s.name) + '</option>'; }).join('');
+  var saved = ls('lbx-me'); if (!saved || !BYID[saved]) saved = 'paddington-01';
+  S.me = saved; ss.value = BYID[saved].station; fillPeople();
+  ss.addEventListener('change', function () { fillPeople(); });
+  document.getElementById('asPerson').addEventListener('change', function (e) { S.me = e.target.value || null; ls('lbx-me', S.me); S.editing = null; render(); });
+}
+
+/* ---------- events ---------- */
+document.addEventListener('click', function (e) {
+  var t = e.target.closest('[data-act]'); if (!t || t.disabled) return;
+  var a = t.dataset.act, b = +t.dataset.b, id = t.dataset.id;
+  if (a === 'edit') { var l = S.listings[listingId(S.me, b)]; S.editing = b; S.editWants = l ? l.wants.slice() : []; render(); }
+  else if (a === 'canceledit') { S.editing = null; S.editWants = []; render(); }
+  else if (a === 'pickwant') { var i = S.editWants.indexOf(b); if (i >= 0) S.editWants.splice(i, 1); else S.editWants.push(b); render(); }
+  else if (a === 'savelisting') saveListing(b, S.editWants.slice());
+  else if (a === 'withdraw') withdraw(b);
+  else if (a === 'direct') { if (!S.me) { toast('Choose who you are acting as first.'); return; } proposeDirect(b, id); }
+  else if (a === 'accept') accept(id);
+  else if (a === 'decline') decline(id);
+  else if (a === 'simmixed') simulate('mixed');
+  else if (a === 'simallall') simulate('all');
+  else if (a === 'simall') simulate('all', id);
+  else if (a === 'simdec') simulate('decline', id);
+  else if (a === 'round') runRound();
+  else if (a === 'poolblock') { S.poolBlock = S.poolBlock === b ? null : b; render(); }
+  else if (a === 'samples') loadSamples();
+  else if (a === 'askreset') { S.confirmReset = true; render(); }
+  else if (a === 'noreset') { S.confirmReset = false; render(); }
+  else if (a === 'reset') resetAll();
+  else if (a === 'clearpretend') { ls('lbx-pretend', null); render(); }
+  else if (a === 'copy') {
+    var txt = approvalText(Object.assign({ id: id }, S.swaps[id]));
+    try { navigator.clipboard.writeText(txt).then(function () { toast('Copied. Paste it into an email to your manager.'); }, function () { showText(txt); }); } catch (err) { showText(txt); }
+  }
+});
+function showText(txt) { var m = document.getElementById('main'); var ta = document.createElement('textarea'); ta.value = txt; ta.rows = 10; ta.style.cssText = 'width:100%;font:13px var(--f-mono);margin-top:12px;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:8px'; m.prepend(ta); ta.select(); toast('Select and copy the text above.'); }
+document.addEventListener('change', function (e) {
+  if (e.target.id === 'rematch') { S.rematch = e.target.checked; }
+  if (e.target.id === 'rosterSel') { S.rosterStation = e.target.value; render(); }
+  if (e.target.id === 'pretend') { if (e.target.value) ls('lbx-pretend', e.target.value); else ls('lbx-pretend', null); render(); }
+});
+function route() { var h = (location.hash || '#my').slice(1); S.view = ['my', 'pool', 'swaps', 'roster', 'how'].indexOf(h) >= 0 ? h : 'my'; render(); window.scrollTo(0, 0); }
+window.addEventListener('hashchange', route);
+
+initPicker();
+S.db = MemDB();
+route();
+(function connect() {
+  var cfg = window.LBX_CONFIG, why = null;
+  if (!window.supabase || !window.supabase.createClient) why = 'The Supabase library did not load. Check your internet connection and reload.';
+  else if (!cfg) why = 'config.js did not load. Check it is uploaded to GitHub with exactly that name (not config.js.txt) next to index.html.';
+  else if (!cfg.supabaseUrl || /YOUR-/.test(cfg.supabaseUrl)) why = 'config.js still has the placeholder Project URL. Upload your edited config.js to GitHub, wait a minute, then reload.';
+  else if (!cfg.supabaseAnonKey || /YOUR-/.test(cfg.supabaseAnonKey)) why = 'config.js still has the placeholder key. Upload your edited config.js to GitHub, wait a minute, then reload.';
+  else if (!/^https:\/\/[a-z0-9-]+\.supabase\.co\/?$/i.test(String(cfg.supabaseUrl).trim())) why = 'The Project URL in config.js looks wrong. It should look like https://abcdefgh.supabase.co with nothing after .co.';
+  if (why) { S.setupNeeded = why; subscribe(); return; }
+  var db = SupaDB(window.supabase.createClient(String(cfg.supabaseUrl).trim().replace(/\/$/, ''), String(cfg.supabaseAnonKey).trim()));
+  S.db = db; S.live = true; subscribe();
+  db.count().then(function (n) { // first visit to an empty database: load the example requests once
+    if (n > 0) return;
+    var w = (window.SEED || []).map(function (o) { return function () { return db.doc(o.path).set(o.data); }; });
+    w.push(function () { return db.doc('meta/seeded').set({ at: new Date().toISOString() }); });
+    return bulk('Loading example requests', w);
+  }).catch(function (e) {
+    console.error(e);
+    var m = (e && e.message) || 'unknown error';
+    var hint = /api key|apikey|jwt|401|unauthori/i.test(m) ? ' The key in config.js is probably wrong: use the anon public key that starts with eyJ.' : /relation|does not exist|schema cache|docs/i.test(m) ? ' The docs table is missing: run supabase-setup.sql again in the SQL Editor.' : /fetch|network|failed/i.test(m) ? ' The Project URL may be wrong, or the project is paused: check the Supabase dashboard.' : '';
+    S.setupNeeded = 'Supabase refused the connection (' + m + ').' + hint; S.live = false; S.db = MemDB(); subscribe(); render();
+  });
+})();
+</script>
+
+</body>
+</html>
