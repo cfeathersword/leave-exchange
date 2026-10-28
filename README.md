@@ -5,6 +5,7 @@ A web app for paramedics in the Sydney sector to swap whole 3-week blocks of 202
 - **My leave**: offer one of your blocks and rank the blocks you would take instead.
 - **Leave pool**: see who is offering and wanting each block, and take a direct 1-for-1 swap.
 - **Matching rounds**: every Monday at 9am, plus a final round 8 days before each block's 10-week cutoff. The matcher finds loops of 2 to 6 people where everyone gets one of their choices.
+- **Same clinical level only**: P1s swap with P1s, ICPs with ICPs, ECPs with ECPs. Station Officer rank is ignored: an SO swaps as an ICP if they are one, otherwise as a P1.
 - **Swaps**: everyone in a loop must accept within 5 days. A decline sends the others straight back to the pool with an instant re-match.
 - **Station rosters**: the approved roster with agreed swaps applied.
 

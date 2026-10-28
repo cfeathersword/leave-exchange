@@ -241,13 +241,18 @@ function buildStaff() {
       used[name] = 1;
       var r = rnd();
       var level = p === 0 ? 'Station Officer' : r < 0.07 ? 'ECP' : r < 0.22 ? 'ICP' : 'Paramedic';
-      staff.push({ id: st.id + '-' + String(p + 1).padStart(2, '0'), name: name, station: st.id, level: level, blocks: pairs[p].slice().sort(function (x, y) { return x - y; }) });
+      var clin = p === 0 ? (r < 0.4 ? 'ICP' : 'Paramedic') : level; // Station Officers also hold a clinical level
+      staff.push({ id: st.id + '-' + String(p + 1).padStart(2, '0'), name: name, station: st.id, level: level, clin: clin, blocks: pairs[p].slice().sort(function (x, y) { return x - y; }) });
     }
   });
   staff.sort(function (a, b) { return a.station === b.station ? a.name.localeCompare(b.name) : 0; });
   return staff;
 }
 
+/* Swap groups: people can only swap with others at the same clinical level.
+   Station Officer rank is ignored: an SO swaps as an ICP if they are one, otherwise as a P1. */
+function swapGroup(s) { var c = s.clin || s.level; return c === 'ICP' ? 'ICP' : c === 'ECP' ? 'ECP' : 'P1'; }
+function levelLabel(s) { return s.level === 'Station Officer' ? 'Station Officer (' + swapGroup(s) + ')' : s.level === 'Paramedic' ? 'Paramedic (P1)' : s.level; }
 function blockStart(b) { return new Date(YEAR_START[0], YEAR_START[1], YEAR_START[2] + 21 * (b - 1)); }
 function blockEnd(b) { return new Date(YEAR_START[0], YEAR_START[1], YEAR_START[2] + 21 * (b - 1) + 20); }
 function blockCutoff(b) { var s = blockStart(b); return new Date(s.getFullYear(), s.getMonth(), s.getDate() - CUTOFF_DAYS); }
@@ -271,9 +276,9 @@ function buildSampleListings(staff, today, seed, opts) {
   for (var t = 0; t < N3; t++) {
     var A = pick(function (s) { return ownOpen(s).length > 0; }); if (!A) break;
     var a = ownOpen(A)[0];
-    var B = pick(function (s) { var o = ownOpen(s); return o.length && o[0] !== a && A.blocks.indexOf(o[0]) < 0 && s.blocks.indexOf(a) < 0; }); if (!B) break;
+    var B = pick(function (s) { var o = ownOpen(s); return o.length && swapGroup(s) === swapGroup(A) && o[0] !== a && A.blocks.indexOf(o[0]) < 0 && s.blocks.indexOf(a) < 0; }); if (!B) break;
     var bb = ownOpen(B)[0];
-    var C = pick(function (s) { var o = ownOpen(s); return o.length && o[0] !== a && o[0] !== bb && B.blocks.indexOf(o[0]) < 0 && s.blocks.indexOf(a) < 0 && s.blocks.indexOf(bb) < 0; }); if (!C) break;
+    var C = pick(function (s) { var o = ownOpen(s); return o.length && swapGroup(s) === swapGroup(A) && o[0] !== a && o[0] !== bb && B.blocks.indexOf(o[0]) < 0 && s.blocks.indexOf(a) < 0 && s.blocks.indexOf(bb) < 0; }); if (!C) break;
     var c = ownOpen(C)[0];
     add(A, a, [bb].concat(randOther(A, 1, [bb])));
     add(B, bb, [c]);
@@ -283,7 +288,7 @@ function buildSampleListings(staff, today, seed, opts) {
   for (var u = 0; u < N2; u++) {
     var P = pick(function (s) { return ownOpen(s).length > 0; }); if (!P) break;
     var p1 = ownOpen(P)[0];
-    var Q = pick(function (s) { var o = ownOpen(s); return o.length && o[0] !== p1 && P.blocks.indexOf(o[0]) < 0 && s.blocks.indexOf(p1) < 0; }); if (!Q) break;
+    var Q = pick(function (s) { var o = ownOpen(s); return o.length && swapGroup(s) === swapGroup(P) && o[0] !== p1 && P.blocks.indexOf(o[0]) < 0 && s.blocks.indexOf(p1) < 0; }); if (!Q) break;
     var q1 = ownOpen(Q)[0];
     add(P, p1, [q1]); add(Q, q1, randOther(Q, 1, [p1]).concat([p1]));
   }
@@ -393,12 +398,13 @@ function swapState(sw) {
   var past = sw.members.some(function (m) { return !isListable(m.gives) || !isListable(m.gets); });
   if (past) return 'expired';
   if (sw.late && sw.members.some(function (m) { return BYID[m.pid].station !== BYID[sw.members[0].pid].station; })) return 'expired';
+  if (sw.members.some(function (m) { return swapGroup(BYID[m.pid]) !== swapGroup(BYID[sw.members[0].pid]); })) return 'void'; // made before the same-level rule
   if (today() > answerBy(sw)) return 'lapsed';
   var broken = sw.members.some(function (m) { return holds(m.pid).indexOf(m.gives) < 0; });
   return broken ? 'void' : 'pending';
 }
 function canTake(taker, l) { // can taker (listing or pid with wants) take listing l's block
-  return taker.pid !== l.pid && holds(taker.pid).indexOf(l.block) < 0;
+  return taker.pid !== l.pid && holds(taker.pid).indexOf(l.block) < 0 && swapGroup(BYID[taker.pid]) === swapGroup(BYID[l.pid]);
 }
 function myPendingCount() { if (!S.me) return 0; return swapList().filter(function (sw) { return swapState(sw) === 'pending' && sw.members.some(function (m) { return m.pid === S.me; }) && !(sw.accepted || {})[S.me]; }).length; }
 
@@ -933,7 +939,7 @@ function stationEffect(sw) {
 }
 function approvalText(sw) {
   var me = sw.members.filter(function (m) { return m.pid === S.me; })[0]; var p = BYID[S.me];
-  var lines = ['Annual leave exchange: request for approval', '', 'Name: ' + p.name + ' (' + stName(p.station) + ', ' + p.level + ')',
+  var lines = ['Annual leave exchange: request for approval', '', 'Name: ' + p.name + ' (' + stName(p.station) + ', ' + levelLabel(p) + ')',
     'Giving up: Block ' + me.gives + ', ' + blockRange(me.gives), 'Taking: Block ' + me.gets + ', ' + blockRange(me.gets), '',
     'This is a ' + sw.members.length + '-person exchange agreed by all parties on ' + fmt(new Date(sw.agreedAt || sw.created), true) + ':'];
   sw.members.forEach(function (m) { var q = BYID[m.pid]; lines.push('- ' + q.name + ' (' + stName(q.station) + '): Block ' + m.gives + ' to Block ' + m.gets); });
@@ -946,7 +952,7 @@ function approvalText(sw) {
 function vMy() {
   if (!S.me) return '<div class="view"><div class="empty">Choose a station and paramedic at the top to see their leave.</div></div>';
   var p = BYID[S.me], mine = holds(S.me), orig = p.blocks;
-  var h = '<div class="view"><div><h2>' + esc(p.name) + '</h2><p class="lede">' + esc(p.level) + ' at ' + esc(stName(p.station)) + '. You hold two 3-week blocks. Offer one to the pool and say which blocks you would take instead, in order of preference.</p></div>';
+  var h = '<div class="view"><div><h2>' + esc(p.name) + '</h2><p class="lede">' + esc(levelLabel(p)) + ' at ' + esc(stName(p.station)) + '. You can swap with other ' + swapGroup(p) + 's only. You hold two 3-week blocks. Offer one to the pool and say which blocks you would take instead, in order of preference.</p></div>';
   h += '<div class="panel">' + stripCells({ cell: function (b) { return mine.indexOf(b) >= 0 ? { cls: 'mine' } : {}; } }) + '<div class="legend" style="margin-top:8px"><span><i style="background:var(--leave)"></i>Your leave</span><span><i style="background:var(--peak)"></i>School holidays / Christmas</span><span><i class="late"></i>Striped = after the final round, station swaps only</span><span><i style="background:var(--off-soft)"></i>Faded = closed</span></div></div>';
   var pend = swapList().filter(function (sw) { return swapState(sw) === 'pending' && sw.members.some(function (m) { return m.pid === S.me; }); });
   if (pend.length) h += '<div class="list"><h3>Swaps waiting on you</h3>' + pend.map(function (sw) { return swapCard(sw); }).join('') + '</div>';
@@ -1014,12 +1020,12 @@ function vPool() {
       var q = BYID[o.pid];
       var isStuck = !isSwappable(o.block) || !liveWants(o).length;
       var myOpts = S.me && !isStuck ? holds(S.me).filter(function (mb) { return canDirect(S.me, mb, o) && !(S.listings[listingId(S.me, mb)] && S.listings[listingId(S.me, mb)].status === 'matched'); }) : [];
-      h += '<div class="item"><div class="spread"><div style="min-width:0"><strong>' + esc(q.name) + '</strong> <span class="small muted">' + esc(q.level) + ', ' + esc(stName(q.station)) + '</span></div>' + (isStuck ? '<span class="chip red">can\'t match</span>' : '') + (isLate(o.block) ? '<span class="chip blue">' + esc(stName(q.station)) + ' only</span>' : '') + (o.example ? '<span class="chip">example</span>' : '') + '</div><div class="row small">Would take ' + (isStuck ? '<span class="muted">nothing still open</span>' : liveWants(o).map(blockChip).join(' ')) + '</div>' +
+      h += '<div class="item"><div class="spread"><div style="min-width:0"><strong>' + esc(q.name) + '</strong> <span class="small muted">' + esc(levelLabel(q)) + ', ' + esc(stName(q.station)) + '</span></div>' + (S.me && swapGroup(q) !== swapGroup(BYID[S.me]) ? '<span class="chip">' + swapGroup(q) + ' only</span>' : '') + (isStuck ? '<span class="chip red">can\'t match</span>' : '') + (isLate(o.block) ? '<span class="chip blue">' + esc(stName(q.station)) + ' only</span>' : '') + (o.example ? '<span class="chip">example</span>' : '') + '</div><div class="row small">Would take ' + (isStuck ? '<span class="muted">nothing still open</span>' : liveWants(o).map(blockChip).join(' ')) + '</div>' +
         (myOpts.length ? '<div class="row">' + myOpts.map(function (mb) { return '<button class="primary" data-act="direct" data-b="' + mb + '" data-id="' + o.id + '">Swap my B' + mb + ' for this</button>'; }).join('') + '</div>' : '') + '</div>';
     });
     h += '</div></div><div class="panel"><h3>Wanting B' + pb + '</h3><p class="small muted" style="margin:4px 0 10px">' + wanters.length + ' people listed B' + pb + ' as a choice.</p><div class="list">';
     if (!wanters.length) h += '<div class="empty">No requests for B' + pb + '.</div>';
-    wanters.slice(0, 30).forEach(function (o) { var q = BYID[o.pid]; h += '<div class="link"><div style="min-width:0"><strong>' + esc(q.name) + '</strong> <span class="small muted">' + esc(stName(q.station)) + '</span></div><div class="arrow">gives B' + o.block + ' · choice ' + (o.wants.indexOf(pb) + 1) + '</div></div>'; });
+    wanters.slice(0, 30).forEach(function (o) { var q = BYID[o.pid]; h += '<div class="link"><div style="min-width:0"><strong>' + esc(q.name) + '</strong> <span class="small muted">' + swapGroup(q) + ', ' + esc(stName(q.station)) + '</span></div><div class="arrow">gives B' + o.block + ' · choice ' + (o.wants.indexOf(pb) + 1) + '</div></div>'; });
     h += '</div></div></div>';
     var pl = penList[pb] || [];
     h += '<div class="panel"><h3>B' + pb + ' in pending swaps</h3><p class="small muted" style="margin:4px 0 10px">' + (pl.length ? pl.length + ' ' + (pl.length === 1 ? 'person is' : 'people are') + ' giving up B' + pb + ' in a swap that is waiting for answers. If someone in that swap declines, the others come back into the pool.' : 'Nobody is giving up B' + pb + ' in a pending swap.') + '</p>';
@@ -1083,7 +1089,7 @@ function vRoster() {
   STAFF.forEach(function (s) { holds(s.id).forEach(function (x) { sector[x] = (sector[x] || 0) + 1; }); });
   staff.forEach(function (s) {
     var cur = holds(s.id);
-    h += '<tr' + (s.id === S.me ? ' style="font-weight:700"' : '') + '><td>' + esc(s.name) + '<span class="lvl">' + esc(s.level) + '</span></td>';
+    h += '<tr' + (s.id === S.me ? ' style="font-weight:700"' : '') + '><td>' + esc(s.name) + '<span class="lvl">' + esc(levelLabel(s)) + '</span></td>';
     for (var b2 = 1; b2 <= NBLOCKS; b2++) {
       var on = cur.indexOf(b2) >= 0, was = s.blocks.indexOf(b2) >= 0, cls = [], txt = '';
       if (on) { counts[b2] = (counts[b2] || 0) + 1; cls.push(was ? 'on' : 'in'); txt = 'A'; } else if (was) { cls.push('out'); txt = 'A'; }
@@ -1108,6 +1114,7 @@ function vHow() {
     '<li>Each block gets a final matching round 8 days before its 10-week cutoff. After that round, pool swaps (matching and cross-station swaps) close for that block.</li>' +
     '<li>From the day after its final round, a block can still be swapped, but only 1-for-1 with someone at your own station, as a direct swap, up to the day before it starts.</li>' +
     '<li>Everyone has 5 days to answer a swap, and never later than 3 days before the pool cutoff (or the day before the block starts, for station swaps). No answer counts as a decline.</li>' +
+    '<li>You can only swap with people at your clinical level: P1 with P1, ICP with ICP, ECP with ECP. Station Officer rank is ignored: a Station Officer swaps as an ICP if they are one, otherwise as a P1.</li>' +
     '<li>Pool swaps can cross stations. Every swap is a loop, so the number of people on leave across the sector never changes in any block.</li>' +
     '<li>A swap is only final when every person in the loop accepts. Then each person asks their own manager to approve it, as the award requires.</li></ul></div>';
   h += '<div class="panel"><h3>Getting a block</h3><ol>' +
