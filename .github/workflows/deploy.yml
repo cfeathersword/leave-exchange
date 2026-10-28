@@ -1,0 +1,54 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Optional: build config.js from repository variables instead of the committed file.
+      # Settings > Secrets and variables > Actions > Variables: SUPABASE_URL, SUPABASE_ANON_KEY
+      - name: Write config.js from repository variables
+        if: ${{ vars.SUPABASE_URL != '' && vars.SUPABASE_ANON_KEY != '' }}
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
+          DEMO_TOOLS: ${{ vars.DEMO_TOOLS || 'true' }}
+        run: |
+          cat > config.js <<EOF
+          window.LBX_CONFIG = {
+            supabaseUrl: '${SUPABASE_URL}',
+            supabaseAnonKey: '${SUPABASE_ANON_KEY}',
+            demoTools: ${DEMO_TOOLS}
+          };
+          EOF
+
+      - name: Collect site files
+        run: |
+          mkdir _site
+          cp index.html config.js _site/
+          cp -r js _site/
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4

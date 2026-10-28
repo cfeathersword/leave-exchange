@@ -1,15 +1,20 @@
 <!doctype html>
-<html lang="en">
+<html lang="en-AU">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Leave Block Exchange</title>
-<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Swap whole blocks of annual leave across stations.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 18'%3E%3Crect width='18' height='18' rx='4' fill='%23c8102e'/%3E%3Cpath d='M3 6h9l-2.5-2.5M15 12H6l2.5 2.5' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Public+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.97.0"></script>
+<script src="config.js"></script>
+<script src="js/supabase-db.js"></script>
+</head>
+<body>
 <style>
-:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}img{max-width:100%}
-
 /* Layout: a roster sheet. A year strip of 17 three-week blocks is the spine of every view. */
 :root{
   --bg:#ffffff; --surface:#ffffff; --ink:#0f1f3d; --muted:#5a6680; --line:#d3dbe8; --line-soft:#e8edf5;
@@ -81,6 +86,8 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .cell.peak{background:var(--peak)}
 .cell.peak .d{color:var(--peak-ink)}
 .cell.locked{opacity:.42}
+.cell.late{background-image:repeating-linear-gradient(135deg,transparent 0 5px,rgba(11,42,91,.10) 5px 9px);border-style:dashed;border-color:var(--leave-ink)}
+.legend i.late{background-image:repeating-linear-gradient(135deg,transparent 0 3px,rgba(11,42,91,.35) 3px 5px);border:1px dashed var(--leave-ink)}
 .cell.mine{background:var(--leave);border-color:var(--leave-ink)}
 .cell.mine .n,.cell.mine .d{color:var(--leave-ink)}
 .cell.sel{outline:2px solid var(--accent);outline-offset:-1px;background:var(--accent-soft)}
@@ -98,7 +105,7 @@ button.cell:disabled{cursor:not-allowed}
 
 /* Cards */
 .blocks{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
-.bcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:grid;gap:10px;min-width:0}
+.bcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:grid;gap:10px;min-width:0;align-content:start}
 .bcard .big{font-family:var(--f-display);font-weight:700;font-size:34px;line-height:1}
 .facts{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:13px}
 .facts dt{color:var(--muted)}
@@ -118,6 +125,23 @@ button.cell:disabled{cursor:not-allowed}
 .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
 .empty{color:var(--muted);font-size:14px;padding:12px;border:1px dashed var(--line);border-radius:var(--r);text-align:center}
 
+.swapgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,270px),1fr));gap:8px;align-items:start}
+.item.sc{padding:8px 10px;gap:3px;font-size:13px}
+.item.sc.mineitem{box-shadow:0 0 0 2px var(--leave-ink)}
+.sch{display:flex;flex-wrap:wrap;align-items:center;gap:5px;font-family:var(--f-display);font-size:16px}
+.sch .chip{font-family:var(--f-body);font-size:11px;padding:1px 7px}
+.scr{display:grid;grid-template-columns:12px minmax(0,1fr) auto;gap:6px;align-items:baseline;line-height:1.35;padding:1px 4px;border-radius:4px}
+.scr.me{background:var(--leave);color:var(--leave-ink)}
+.scr .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.scr .bb{font-size:12px}
+.item.sc button{font-size:13px;padding:4px 10px}
+.swapcols{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:12px;align-items:start}
+.swapsview{gap:12px}
+.swapsview .item{padding:10px;gap:6px}
+.swapsview .chain{gap:4px}
+.swapsview .link{padding:4px 8px;font-size:13.5px}
+.swapsview .swapcols .list .item{margin:0}
+.swapsview a{color:var(--navy);font-weight:600;font-size:13px}
 /* Roster table */
 .table-scroll{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}
 table.roster{border-collapse:collapse;font-size:12.5px;min-width:900px;width:100%}
@@ -147,11 +171,6 @@ details summary{cursor:pointer;font-weight:600}
 @media (max-width:520px){h2{font-size:21px}.bcard .big{font-size:28px}nav.tabs a{padding-inline:10px;font-size:15px}}
 @media (prefers-reduced-motion:no-preference){.item,.bcard{transition:border-color .15s}}
 </style>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.97.0"></script>
-<script src="config.js"></script>
-</head>
-<body>
-
 
 <header class="top">
   <div class="wrap">
@@ -170,6 +189,7 @@ details summary{cursor:pointer;font-weight:600}
       <a href="#my" data-v="my">My leave <span class="badge" id="myBadge" hidden></span></a>
       <a href="#pool" data-v="pool">Leave pool</a>
       <a href="#swaps" data-v="swaps">Swaps</a>
+      <a href="#rounds" data-v="rounds">Rounds</a>
       <a href="#roster" data-v="roster">Station rosters</a>
       <a href="#how" data-v="how">How it works</a>
     </nav>
@@ -180,9 +200,9 @@ details summary{cursor:pointer;font-weight:600}
 <div class="busy" id="busy" hidden role="status" aria-live="polite"></div>
 
 <script>
-window.SEED = [{"op":"set","path":"listings/maroubra-18-b7","data":{"pid":"maroubra-18","station":"maroubra","block":7,"wants":[10,9],"status":"open","example":true,"created":"2026-10-25T00:00:00.000Z"}},{"op":"set","path":"listings/paddington-22-b10","data":{"pid":"paddington-22","station":"paddington","block":10,"wants":[3],"status":"open","example":true,"created":"2026-10-23T00:00:00.000Z"}},{"op":"set","path":"listings/bondi-27-b3","data":{"pid":"bondi-27","station":"bondi","block":3,"wants":[13,7],"status":"open","example":true,"created":"2026-10-19T00:00:00.000Z"}},{"op":"set","path":"listings/paddington-10-b5","data":{"pid":"paddington-10","station":"paddington","block":5,"wants":[3,17],"status":"open","example":true,"created":"2026-10-24T00:00:00.000Z"}},{"op":"set","path":"listings/bondi-25-b3","data":{"pid":"bondi-25","station":"bondi","block":3,"wants":[9],"status":"open","example":true,"created":"2026-10-27T00:00:00.000Z"}},{"op":"set","path":"listings/bondi-11-b9","data":{"pid":"bondi-11","station":"bondi","block":9,"wants":[17,5],"status":"open","example":true,"created":"2026-10-20T00:00:00.000Z"}},{"op":"set","path":"listings/central-16-b9","data":{"pid":"central-16","station":"central","block":9,"wants":[10,13],"status":"open","example":true,"created":"2026-10-24T00:00:00.000Z"}},{"op":"set","path":"listings/central-19-b10","data":{"pid":"central-19","station":"central","block":10,"wants":[11],"status":"open","example":true,"created":"2026-10-26T00:00:00.000Z"}},{"op":"set","path":"listings/binchicken-22-b11","data":{"pid":"binchicken-22","station":"binchicken","block":11,"wants":[5,9],"status":"open","example":true,"created":"2026-10-19T00:00:00.000Z"}},{"op":"set","path":"listings/mascot-02-b9","data":{"pid":"mascot-02","station":"mascot","block":9,"wants":[4],"status":"open","example":true,"created":"2026-10-23T00:00:00.000Z"}},{"op":"set","path":"listings/mascot-09-b4","data":{"pid":"mascot-09","station":"mascot","block":4,"wants":[17,9],"status":"open","example":true,"created":"2026-10-21T00:00:00.000Z"}},{"op":"set","path":"listings/randwick-05-b7","data":{"pid":"randwick-05","station":"randwick","block":7,"wants":[9],"status":"open","example":true,"created":"2026-10-27T00:00:00.000Z"}},{"op":"set","path":"listings/wobbly-06-b9","data":{"pid":"wobbly-06","station":"wobbly","block":9,"wants":[13,7],"status":"open","example":true,"created":"2026-10-23T00:00:00.000Z"}},{"op":"set","path":"listings/mascot-15-b8","data":{"pid":"mascot-15","station":"mascot","block":8,"wants":[10],"status":"open","example":true,"created":"2026-10-27T00:00:00.000Z"}},{"op":"set","path":"listings/wobbly-15-b10","data":{"pid":"wobbly-15","station":"wobbly","block":10,"wants":[5,8],"status":"open","example":true,"created":"2026-10-19T00:00:00.000Z"}},{"op":"set","path":"listings/central-11-b11","data":{"pid":"central-11","station":"central","block":11,"wants":[9,5],"status":"open","example":true,"created":"2026-10-20T00:00:00.000Z"}},{"op":"set","path":"listings/maroubra-01-b14","data":{"pid":"maroubra-01","station":"maroubra","block":14,"wants":[13,17],"status":"open","example":true,"created":"2026-10-22T00:00:00.000Z"}},{"op":"set","path":"listings/randwick-27-b9","data":{"pid":"randwick-27","station":"randwick","block":9,"wants":[13,5,17],"status":"open","example":true,"created":"2026-10-24T00:00:00.000Z"}},{"op":"set","path":"listings/maroubra-17-b3","data":{"pid":"maroubra-17","station":"maroubra","block":3,"wants":[9,5,17],"status":"open","example":true,"created":"2026-10-22T00:00:00.000Z"}},{"op":"set","path":"listings/central-32-b3","data":{"pid":"central-32","station":"central","block":3,"wants":[17,5],"status":"open","example":true,"created":"2026-10-27T00:00:00.000Z"}},{"op":"set","path":"listings/randwick-04-b8","data":{"pid":"randwick-04","station":"randwick","block":8,"wants":[9],"status":"open","example":true,"created":"2026-10-21T00:00:00.000Z"}},{"op":"set","path":"listings/bondi-02-b4","data":{"pid":"bondi-02","station":"bondi","block":4,"wants":[5],"status":"open","example":true,"created":"2026-10-23T00:00:00.000Z"}},{"op":"set","path":"listings/paddington-11-b10","data":{"pid":"paddington-11","station":"paddington","block":10,"wants":[5,9,13],"status":"open","example":true,"created":"2026-10-21T00:00:00.000Z"}},{"op":"set","path":"listings/sac-21-b10","data":{"pid":"sac-21","station":"sac","block":10,"wants":[17,9,5],"status":"open","example":true,"created":"2026-10-20T00:00:00.000Z"}},{"op":"set","path":"listings/snaghill-03-b9","data":{"pid":"snaghill-03","station":"snaghill","block":9,"wants":[5],"status":"open","example":true,"created":"2026-10-23T00:00:00.000Z"}},{"op":"set","path":"listings/sac-03-b11","data":{"pid":"sac-03","station":"sac","block":11,"wants":[9],"status":"open","example":true,"created":"2026-10-26T00:00:00.000Z"}},{"op":"set","path":"listings/sac-17-b13","data":{"pid":"sac-17","station":"sac","block":13,"wants":[17],"status":"open","example":true,"created":"2026-10-24T00:00:00.000Z"}},{"op":"set","path":"listings/bondi-14-b14","data":{"pid":"bondi-14","station":"bondi","block":14,"wants":[13,17,9],"status":"open","example":true,"created":"2026-10-21T00:00:00.000Z"}},{"op":"set","path":"listings/maroubra-07-b8","data":{"pid":"maroubra-07","station":"maroubra","block":8,"wants":[5],"status":"open","example":true,"created":"2026-10-26T00:00:00.000Z"}},{"op":"set","path":"listings/randwick-32-b14","data":{"pid":"randwick-32","station":"randwick","block":14,"wants":[9,17,13],"status":"open","example":true,"created":"2026-10-23T00:00:00.000Z"}},{"op":"set","path":"listings/snaghill-04-b14","data":{"pid":"snaghill-04","station":"snaghill","block":14,"wants":[17,13,9],"status":"open","example":true,"created":"2026-10-23T00:00:00.000Z"}},{"op":"set","path":"listings/bondi-01-b13","data":{"pid":"bondi-01","station":"bondi","block":13,"wants":[17,9,4],"status":"open","example":true,"created":"2026-10-22T00:00:00.000Z"}},{"op":"set","path":"listings/snaghill-19-b4","data":{"pid":"snaghill-19","station":"snaghill","block":4,"wants":[5],"status":"open","example":true,"created":"2026-10-26T00:00:00.000Z"}},{"op":"set","path":"listings/mascot-31-b6","data":{"pid":"mascot-31","station":"mascot","block":6,"wants":[9,17],"status":"open","example":true,"created":"2026-10-20T00:00:00.000Z"}},{"op":"set","path":"listings/snaghill-06-b11","data":{"pid":"snaghill-06","station":"snaghill","block":11,"wants":[5,9],"status":"open","example":true,"created":"2026-10-23T00:00:00.000Z"}},{"op":"set","path":"listings/maroubra-04-b10","data":{"pid":"maroubra-04","station":"maroubra","block":10,"wants":[5,13,9],"status":"open","example":true,"created":"2026-10-26T00:00:00.000Z"}},{"op":"set","path":"listings/binchicken-12-b6","data":{"pid":"binchicken-12","station":"binchicken","block":6,"wants":[13,9],"status":"open","example":true,"created":"2026-10-19T00:00:00.000Z"}},{"op":"set","path":"listings/sac-40-b16","data":{"pid":"sac-40","station":"sac","block":16,"wants":[13,9],"status":"open","example":true,"created":"2026-10-23T00:00:00.000Z"}},{"op":"set","path":"listings/bondi-24-b5","data":{"pid":"bondi-24","station":"bondi","block":5,"wants":[9,17],"status":"open","example":true,"created":"2026-10-23T00:00:00.000Z"}},{"op":"set","path":"listings/snaghill-13-b16","data":{"pid":"snaghill-13","station":"snaghill","block":16,"wants":[5,9,13],"status":"open","example":true,"created":"2026-10-24T00:00:00.000Z"}},{"op":"set","path":"listings/central-38-b15","data":{"pid":"central-38","station":"central","block":15,"wants":[5,17],"status":"open","example":true,"created":"2026-10-21T00:00:00.000Z"}}];
 /* ---- Shared data generator (made-up staff, deterministic) ---- */
 var NBLOCKS = 17;
+var CUTOFF_DAYS = 70; // 10-week cutoff; the final round is 8 days before it, then same-station direct swaps only
 var YEAR_START = [2027, 0, 16]; // Saturday 16 Jan 2027
 var PEAK = { 1: 'Summer holidays', 5: 'Easter holidays', 9: 'July holidays', 13: 'Spring holidays', 17: 'Christmas' };
 var STATIONS = [
@@ -230,7 +250,7 @@ function buildStaff() {
 
 function blockStart(b) { return new Date(YEAR_START[0], YEAR_START[1], YEAR_START[2] + 21 * (b - 1)); }
 function blockEnd(b) { return new Date(YEAR_START[0], YEAR_START[1], YEAR_START[2] + 21 * (b - 1) + 20); }
-function blockCutoff(b) { var s = blockStart(b); return new Date(s.getFullYear(), s.getMonth() - 4, s.getDate()); }
+function blockCutoff(b) { var s = blockStart(b); return new Date(s.getFullYear(), s.getMonth(), s.getDate() - CUTOFF_DAYS); }
 function blockOpen(b, today) { return today.getTime() <= blockCutoff(b).getTime(); }
 
 /* Example pool requests: a few guaranteed 2-way and 3-way loops plus random requests. */
@@ -278,69 +298,14 @@ function buildSampleListings(staff, today, seed, opts) {
 /* ---- end generator ---- */
 
 
-/* ---------- Supabase data layer (same interface the app already uses) ---------- */
-function SupaDB(client) {
-  var cache = {}, subs = {}, started = {};
-  function emit(c) {
-    var m = cache[c] || {};
-    var docs = Object.keys(m).map(function (id) { var v = m[id]; return { id: id, exists: true, data: function () { return v; } }; });
-    (subs[c] || []).forEach(function (f) { f({ docs: docs, size: docs.length, empty: !docs.length }); });
-  }
-  function put(c, id, data) { (cache[c] = cache[c] || {})[id] = data; emit(c); }
-  function drop(c, id) { if (cache[c]) { delete cache[c][id]; } emit(c); }
-  function check(res) { if (res.error) { var e = new Error(res.error.message); e.code = 'unavailable'; throw e; } return res; }
-  function load(c) {
-    return client.from('docs').select('id,data').eq('coll', c).then(check).then(function (res) {
-      var m = {}; (res.data || []).forEach(function (r) { m[r.id] = r.data; }); cache[c] = m; emit(c);
-    });
-  }
-  var live = false;
-  function goLive() { // one channel for the whole table; delete events can't be filtered, so route by row
-    if (live) return; live = true;
-    client.channel('docs-all')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'docs' }, function (p) {
-        var row = p.eventType === 'DELETE' ? p.old : p.new;
-        if (!row || !row.coll || !started[row.coll]) return;
-        if (p.eventType === 'DELETE') drop(row.coll, row.id); else put(row.coll, row.id, row.data);
-      })
-      .subscribe();
-    setInterval(function () { if (!document.hidden) Object.keys(started).forEach(function (c) { load(c).catch(function () {}); }); }, 30000); // safety net
-  }
-  function start(c) {
-    if (started[c]) return; started[c] = true;
-    load(c).catch(function (e) { console.error(e); toast('Could not load shared data. Check config.js and your Supabase setup.'); });
-    goLive();
-  }
-  function doc(path) {
-    var c = path.split('/')[0], id = path.split('/')[1];
-    return {
-      id: id, path: path,
-      get: function () { var v = cache[c] && cache[c][id]; return Promise.resolve({ exists: !!v, data: function () { return v; } }); },
-      set: function (d) { var v = JSON.parse(JSON.stringify(d)); put(c, id, v); return client.from('docs').upsert({ coll: c, id: id, data: v, updated_at: new Date().toISOString() }).then(check); },
-      update: function (d) { var v = deepMerge((cache[c] && cache[c][id]) || {}, d); put(c, id, v); return client.from('docs').upsert({ coll: c, id: id, data: v, updated_at: new Date().toISOString() }).then(check); },
-      delete: function () { drop(c, id); return client.from('docs').delete().eq('coll', c).eq('id', id).then(check); }
-    };
-  }
-  return {
-    doc: doc,
-    collection: function (c) {
-      return {
-        doc: function (id) { return doc(c + '/' + (id || rid())); },
-        onSnapshot: function (fn) { (subs[c] = subs[c] || []).push(fn); start(c); if (cache[c]) setTimeout(function () { emit(c); }, 0); return function () {}; }
-      };
-    },
-    count: function () { return client.from('docs').select('id', { count: 'exact', head: true }).then(check).then(function (r) { return r.count || 0; }); }
-  };
-}
-
 /* ======================= App ======================= */
 var STAFF = buildStaff();
 var BYID = {}; STAFF.forEach(function (s) { BYID[s.id] = s; });
 var STN = {}; STATIONS.forEach(function (s) { STN[s.id] = s; });
-var MAX_LOOP = 5;
-var DEMO_SIM = true; // standalone demo build switches this on
+var MAX_LOOP = 6;
+var DEMO_SIM = !!(window.LBX_CONFIG && window.LBX_CONFIG.demoTools); // set demoTools in config.js
 
-var S = { db: null, live: false, listings: {}, swaps: {}, holdings: {}, rounds: {}, me: null, view: 'my', rosterStation: null, poolBlock: null, editing: null, editWants: [], confirmReset: false, lastResult: null, loaded: false, sim: null, rematch: true };
+var S = { recent: {}, rmq: [], db: null, live: false, listings: {}, swaps: {}, holdings: {}, rounds: {}, me: null, view: 'my', rosterStation: null, poolBlock: null, editing: null, editWants: [], confirmReset: false, lastResult: null, loaded: false, sim: null, rematch: true };
 
 function ls(k, v) { try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { return null; } }
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -353,12 +318,25 @@ function addDays(d, n) { return new Date(d.getFullYear(), d.getMonth(), d.getDat
 function nowTime() { var p = ls('lbx-pretend'), n = new Date(); if (!p) return n; var d = new Date(p + 'T00:00:00'); d.setHours(n.getHours(), n.getMinutes(), n.getSeconds()); return d; }
 function matchEnd(b) { return addDays(blockCutoff(b), -FINAL_DAYS); } // last day a block can be matched (its final round)
 function isMatchable(b) { return isOpen(b) && today() <= matchEnd(b); }
+function lateStart(b) { return addDays(matchEnd(b), 1); } // first day of the station-only window: the day after the block's final round
+function lateEnd(b) { return addDays(blockStart(b), -1); }            // last day: the day before the block starts
+function isLate(b) { var t = today(); return t >= lateStart(b) && t <= lateEnd(b); }
+function isSwappable(b) { return isMatchable(b) || isLate(b); }       // can be part of a new swap today
+function isListable(b) { return isOpen(b) || isLate(b); }             // can sit in the pool today
+function stationOnly(a, b) { return isLate(a) || isLate(b); }
+function canDirect(pid, myBlock, o) { // can pid swap myBlock 1-for-1 for listing o right now
+  if (!pid || o.pid === pid || o.status !== 'open' || !isSwappable(myBlock) || !isSwappable(o.block)) return false;
+  if (o.wants.indexOf(myBlock) < 0 || holds(pid).indexOf(myBlock) < 0 || !canTake({ pid: pid }, o) || holds(o.pid).indexOf(myBlock) >= 0) return false;
+  if (stationOnly(myBlock, o.block) && BYID[pid].station !== BYID[o.pid].station) return false;
+  return true;
+}
 function answerBy(sw) {
   var c = new Date(sw.created), d = addDays(new Date(c.getFullYear(), c.getMonth(), c.getDate()), ANSWER_DAYS);
-  sw.members.forEach(function (m) { [m.gives, m.gets].forEach(function (b) { var x = addDays(blockCutoff(b), -BUFFER_DAYS); if (x < d) d = x; }); });
+  var c0 = new Date(c.getFullYear(), c.getMonth(), c.getDate());
+  sw.members.forEach(function (m) { [m.gives, m.gets].forEach(function (b) { var x = c0 >= lateStart(b) ? lateEnd(b) : addDays(blockCutoff(b), -BUFFER_DAYS); if (x < d) d = x; }); });
   return d;
 }
-function liveWants(l) { return l.wants.filter(isMatchable); }
+function liveWants(l) { return l.wants.filter(isSwappable); }
 function dayName(d) { return d.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' }); }
 /* Scheduled rounds: every Monday at 9am, plus a final round for each block 8 days before its cutoff. */
 function schedule(from, to) {
@@ -386,11 +364,8 @@ function listingId(pid, b) { return pid + '-b' + b; }
 /* ---------- storage: shared db when available, in-memory otherwise ---------- */
 function deepMerge(a, b) { var o = JSON.parse(JSON.stringify(a || {})); Object.keys(b).forEach(function (k) { var v = b[k]; if (v && typeof v === 'object' && !Array.isArray(v) && o[k] && typeof o[k] === 'object' && !Array.isArray(o[k])) o[k] = deepMerge(o[k], v); else o[k] = JSON.parse(JSON.stringify(v)); }); return o; }
 function MemDB() {
-  var KEY = 'lbx-local-fallback-v1', store = {}, subs = {};
-  try { store = JSON.parse(localStorage.getItem(KEY) || 'null') || null; } catch (e) { store = null; }
-  if (!store) { store = {}; (window.SEED || []).forEach(function (o) { store[o.path] = o.data; }); }
-  function persist() { try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) {} }
-  function emit(c) { persist(); var docs = Object.keys(store).filter(function (p) { return p.split('/')[0] === c; }).map(function (p) { var v = store[p]; return { id: p.split('/')[1], exists: true, data: function () { return v; } }; }); (subs[c] || []).forEach(function (f) { f({ docs: docs, size: docs.length, empty: !docs.length }); }); }
+  var store = {}, subs = {};
+  function emit(c) { var docs = Object.keys(store).filter(function (p) { return p.split('/')[0] === c; }).map(function (p) { var v = store[p]; return { id: p.split('/')[1], exists: true, data: function () { return v; } }; }); (subs[c] || []).forEach(function (f) { f({ docs: docs, size: docs.length, empty: !docs.length }); }); }
   function doc(path) { var c = path.split('/')[0]; return { id: path.split('/')[1], path: path, get: function () { return Promise.resolve({ exists: !!store[path], data: function () { return store[path]; } }); }, set: function (d) { store[path] = JSON.parse(JSON.stringify(d)); emit(c); return Promise.resolve(); }, update: function (d) { store[path] = deepMerge(store[path], d); emit(c); return Promise.resolve(); }, delete: function () { delete store[path]; emit(c); return Promise.resolve(); } }; }
   return { doc: doc, collection: function (c) { return { doc: function (id) { return doc(c + '/' + (id || rid())); }, onSnapshot: function (fn) { (subs[c] = subs[c] || []).push(fn); setTimeout(function () { emit(c); }, 0); return function () {}; } }; } };
 }
@@ -402,7 +377,7 @@ function subscribe() {
       if (dbRef !== S.db) return;
       var m = {}; snap.docs.forEach(function (d) { if (d.exists) m[d.id] = d.data(); });
       S[c] = m; S.loaded = true; S['_from_' + c] = dbRef; render(); setTimeout(maybeAutoRun, 50);
-    }, function () { toast('Lost connection to shared data. Reload the page.'); });
+    }, function () { if (dbRef === S.db) toast('Lost connection to shared data. Reload the page.'); });
   });
 }
 function oops(e) { console.error(e); toast(e && e.code === 'invalid_argument' ? 'You do not have permission to change shared data.' : 'That did not save. Try again.'); }
@@ -410,13 +385,14 @@ function oops(e) { console.error(e); toast(e && e.code === 'invalid_argument' ? 
 /* ---------- derived ---------- */
 function openListings() {
   return Object.keys(S.listings).map(function (k) { var l = S.listings[k]; return Object.assign({ id: k }, l); })
-    .filter(function (l) { return l.status === 'open' && BYID[l.pid] && holds(l.pid).indexOf(l.block) >= 0 && isOpen(l.block); });
+    .filter(function (l) { return l.status === 'open' && BYID[l.pid] && holds(l.pid).indexOf(l.block) >= 0 && isListable(l.block); });
 }
 function swapList() { return Object.keys(S.swaps).map(function (k) { return Object.assign({ id: k }, S.swaps[k]); }).sort(function (a, b) { return (b.created || '').localeCompare(a.created || ''); }); }
 function swapState(sw) {
   if (sw.status !== 'pending') return sw.status;
-  var past = sw.members.some(function (m) { return !isOpen(m.gives) || !isOpen(m.gets); });
+  var past = sw.members.some(function (m) { return !isListable(m.gives) || !isListable(m.gets); });
   if (past) return 'expired';
+  if (sw.late && sw.members.some(function (m) { return BYID[m.pid].station !== BYID[sw.members[0].pid].station; })) return 'expired';
   if (today() > answerBy(sw)) return 'lapsed';
   var broken = sw.members.some(function (m) { return holds(m.pid).indexOf(m.gives) < 0; });
   return broken ? 'void' : 'pending';
@@ -426,53 +402,231 @@ function canTake(taker, l) { // can taker (listing or pid with wants) take listi
 }
 function myPendingCount() { if (!S.me) return 0; return swapList().filter(function (sw) { return swapState(sw) === 'pending' && sw.members.some(function (m) { return m.pid === S.me; }) && !(sw.accepted || {})[S.me]; }).length; }
 
-/* ---------- matching ---------- */
-function findLoops(nodes) {
-  var idx = {}, adj = nodes.map(function () { return []; });
-  nodes.forEach(function (n, i) { idx[n.id] = i; });
-  nodes.forEach(function (a, i) {
-    nodes.forEach(function (b, j) {
-      if (i === j) return;
-      var r = a.wants.indexOf(b.block);
-      if (r >= 0 && isMatchable(b.block) && canTake(a, b)) adj[i].push({ j: j, rank: r });
+/* ---------- matching ----------
+   1. Solve the best possible "cycle cover" exactly (Hungarian algorithm): who receives whose block,
+      maximising people matched, then final-round priority, then preference rank. Ties get a small random draw.
+      This ignores the loop-size limit, so its count is an upper bound on what any round can achieve.
+   2. Re-pair people block by block to split that solution into the shortest possible loops.
+   3. Anyone left in a loop that is still too long gets a second, targeted search for short loops.
+   Repeated with fresh random tie-breaks while time allows; the best result wins. */
+function hungarian(n, a) { // min-cost perfect assignment on an n x n cost matrix (row i -> column)
+  var u = new Float64Array(n + 1), v = new Float64Array(n + 1), p = new Int32Array(n + 1), way = new Int32Array(n + 1);
+  var minv = new Float64Array(n + 1), used = new Uint8Array(n + 1);
+  for (var i = 1; i <= n; i++) {
+    p[0] = i; var j0 = 0; minv.fill(Infinity); used.fill(0);
+    do {
+      used[j0] = 1; var i0 = p[j0], delta = Infinity, j1 = 0, row = (i0 - 1) * n - 1, ui = u[i0];
+      for (var j = 1; j <= n; j++) if (!used[j]) {
+        var cur = a[row + j] - ui - v[j];
+        if (cur < minv[j]) { minv[j] = cur; way[j] = j0; }
+        if (minv[j] < delta) { delta = minv[j]; j1 = j; }
+      }
+      for (j = 0; j <= n; j++) { if (used[j]) { u[p[j]] += delta; v[j] -= delta; } else minv[j] -= delta; }
+      j0 = j1;
+    } while (p[j0] !== 0);
+    do { var jw = way[j0]; p[j0] = p[jw]; j0 = jw; } while (j0);
+  }
+  var res = new Int32Array(n); for (var c = 1; c <= n; c++) res[p[c] - 1] = c - 1; return res;
+}
+function matchPool(nodes, prio, budgetMs) {
+  prio = prio || []; budgetMs = budgetMs || 1500;
+  var n = nodes.length, t0 = Date.now(), NB = NBLOCKS + 1;
+  var BIG = 100000, PRIO = 1000, RANK = 10, NOISE = 3, BAN = 1e9;
+  var isPrio = function (b) { return prio.indexOf(b) >= 0; };
+  // ok[i*n+j] = rank+1 if offer i can receive offer j's block, else 0
+  var ok = new Int16Array(n * n), edges = 0;
+  for (var i = 0; i < n; i++) for (var j = 0; j < n; j++) {
+    if (i === j) continue;
+    var r = nodes[i].wants.indexOf(nodes[j].block);
+    if (r >= 0 && nodes[i].pid !== nodes[j].pid && isMatchable(nodes[j].block) && canTake(nodes[i], nodes[j])) { ok[i * n + j] = r + 1; edges++; }
+  }
+  var best = { pick: [], people: 0, sq: 0, prio: 0, rankSum: 0, bound: 0 };
+  if (!edges) return best;
+  function better(a, b) { return a.people !== b.people ? a.people > b.people : a.sq !== b.sq ? a.sq < b.sq : a.prio !== b.prio ? a.prio > b.prio : a.rankSum < b.rankSum; }
+  function rnd(k) { return Math.floor(Math.random() * k); }
+  function shuffled(arr) { for (var x = arr.length - 1; x > 0; x--) { var y = rnd(x + 1), t = arr[x]; arr[x] = arr[y]; arr[y] = t; } return arr; }
+  function loopFrom(seq) { // seq: offer indexes, each receives the next one's block
+    var ranks = seq.map(function (x, k) { return ok[x * n + seq[(k + 1) % seq.length]] - 1; });
+    return { nodes: seq, ranks: ranks };
+  }
+  function score(loops) {
+    var s = { pick: loops, people: 0, sq: 0, prio: 0, rankSum: 0 };
+    loops.forEach(function (l) { s.people += l.nodes.length; s.sq += l.nodes.length * l.nodes.length; l.nodes.forEach(function (x, k) { s.rankSum += l.ranks[k]; if (isPrio(nodes[x].block)) s.prio++; }); });
+    return s;
+  }
+  // targeted search for short loops among the free offers, starting only from offers that need re-homing
+  function repair(free, starts) {
+    var isFree = new Uint8Array(n); free.forEach(function (x) { isFree[x] = 1; });
+    var found = [], steps = 0, CAP = 150000;
+    starts.forEach(function (s) {
+      var path = [s], people = {}, blocks = {}; people[nodes[s].pid] = 1; blocks[nodes[s].block] = 1;
+      (function dfs() {
+        if (++steps > CAP || found.length > 4000) return;
+        var cur = path[path.length - 1];
+        for (var j = 0; j < n; j++) {
+          if (!ok[cur * n + j] || !isFree[j]) continue;
+          if (j === s) { if (path.length >= 2) found.push(path.slice()); continue; }
+          if (path.length >= MAX_LOOP || path.indexOf(j) >= 0 || people[nodes[j].pid] || blocks[nodes[j].block]) continue;
+          if (starts.indexOf(j) >= 0 && starts.indexOf(j) < starts.indexOf(s)) continue; // each loop found once from its first start
+          people[nodes[j].pid] = 1; blocks[nodes[j].block] = 1; path.push(j);
+          dfs();
+          path.pop(); delete people[nodes[j].pid]; delete blocks[nodes[j].block];
+        }
+      })();
     });
-  });
-  var loops = [], LIMIT = 8000, steps = 0, STEP_LIMIT = 600000;
-  for (var s = 0; s < nodes.length && loops.length < LIMIT; s++) {
-    (function dfs(path, ranks, people, blocks) {
-      if (loops.length >= LIMIT || ++steps > STEP_LIMIT) return;
-      var cur = path[path.length - 1];
-      adj[cur].forEach(function (e) {
-        if (e.j === s && path.length >= 2) { loops.push({ nodes: path.slice(), ranks: ranks.concat(e.rank) }); return; }
-        if (e.j <= s || path.length >= MAX_LOOP || path.indexOf(e.j) >= 0) return;
-        var nb = nodes[e.j];
-        if (people[nb.pid] || blocks[nb.block]) return;
-        people[nb.pid] = 1; blocks[nb.block] = 1;
-        dfs(path.concat(e.j), ranks.concat(e.rank), people, blocks);
-        delete people[nb.pid]; delete blocks[nb.block];
+    // greedy pack: bigger loops first, then better ranks, random ties
+    var cand = found.map(function (seq) { var l = loopFrom(seq); return { l: l, k: -seq.length * 100 + l.ranks.reduce(function (a, b) { return a + b; }, 0) + Math.random() }; }).sort(function (a, b) { return a.k - b.k; });
+    var taken = {}, out = [];
+    cand.forEach(function (c) {
+      if (c.l.nodes.some(function (x) { return taken[x] || taken['p' + nodes[x].pid]; })) return;
+      c.l.nodes.forEach(function (x) { taken[x] = 1; taken['p' + nodes[x].pid] = 1; }); out.push(c.l);
+    });
+    return out;
+  }
+  var cost = new Float64Array(n * n), runs = 0, benched = new Uint8Array(n); // benched: offers sat out this attempt
+  do {
+    runs++;
+    for (i = 0; i < n; i++) for (j = 0; j < n; j++) {
+      var k = i * n + j;
+      cost[k] = i === j ? 0 : ok[k] && !benched[i] && !benched[j] ? -(BIG + (isPrio(nodes[j].block) ? PRIO : 0) - (ok[k] - 1) * RANK) + Math.random() * NOISE : BAN;
+    }
+    var rec = hungarian(n, cost), usedOffers = [];
+    for (i = 0; i < n; i++) if (rec[i] !== i) usedOffers.push(i);
+    if (runs === 1) best.bound = usedOffers.length; // first attempt has nothing benched, so it is a true ceiling
+    // people using both their offers: next attempt, bench one of them at random
+    var byP = {}; usedOffers.forEach(function (x) { (byP[nodes[x].pid] = byP[nodes[x].pid] || []).push(x); });
+    benched = new Uint8Array(n); Object.keys(byP).forEach(function (pp) { var a = byP[pp]; if (a.length > 1) benched[a[rnd(a.length)]] = 1; });
+    // decompose into short loops, several random passes per solution
+    for (var pass = 0; pass < 12; pass++) {
+      var arcs = []; for (var g = 0; g < NB; g++) { arcs.push([]); for (var w = 0; w < NB; w++) arcs[g].push([]); }
+      shuffled(usedOffers.slice()).forEach(function (x) { arcs[nodes[x].block][nodes[rec[x]].block].push(x); });
+      var loops = [], leftovers = [], personUsed = {};
+      for (;;) {
+        // shortest cycle in the block graph (BFS from every block, random order)
+        var bestCyc = null;
+        var startsB = shuffled(Array.apply(null, Array(NB)).map(function (_, b) { return b; }));
+        for (var si = 0; si < startsB.length; si++) {
+          var s0 = startsB[si], prev = {}, q = [s0], seen = {}, hit = -1; seen[s0] = 1;
+          for (var qi = 0; qi < q.length && hit < 0; qi++) {
+            var b0 = q[qi], outs = shuffled(Array.apply(null, Array(NB)).map(function (_, b) { return b; }));
+            for (var oi = 0; oi < outs.length; oi++) {
+              var b1 = outs[oi]; if (!arcs[b0][b1].length) continue;
+              if (b1 === s0) { hit = b0; break; }
+              if (!seen[b1]) { seen[b1] = 1; prev[b1] = b0; q.push(b1); }
+            }
+          }
+          if (hit < 0) continue;
+          var cyc = [s0], cur = hit, path2 = [];
+          while (cur !== s0) { path2.push(cur); cur = prev[cur]; }
+          cyc = cyc.concat(path2.reverse());
+          if (!bestCyc || cyc.length < bestCyc.length) bestCyc = cyc;
+          if (bestCyc.length === 2) break;
+        }
+        if (!bestCyc) break;
+        // pick one offer per arc, avoiding the same person twice in a loop
+        var seq = [], inLoop = {}, bad = false;
+        for (var t = 0; t < bestCyc.length; t++) {
+          var list = arcs[bestCyc[t]][bestCyc[(t + 1) % bestCyc.length]], pickIdx = -1;
+          for (var li = 0; li < list.length; li++) if (!inLoop[nodes[list[li]].pid] && !personUsed[nodes[list[li]].pid]) { pickIdx = li; break; }
+          if (pickIdx < 0) { pickIdx = 0; bad = true; }
+          var off = list.splice(pickIdx, 1)[0]; seq.push(off); inLoop[nodes[off].pid] = 1;
+        }
+        if (bad || seq.length > MAX_LOOP) { leftovers = leftovers.concat(seq); continue; }
+        seq.forEach(function (x) { personUsed[nodes[x].pid] = 1; });
+        loops.push(loopFrom(seq));
+      }
+      if (leftovers.length) {
+        var inLoops = {}; loops.forEach(function (l) { l.nodes.forEach(function (x) { inLoops[x] = 1; inLoops['p' + nodes[x].pid] = 1; }); });
+        var free = []; for (i = 0; i < n; i++) if (!inLoops[i] && !inLoops['p' + nodes[i].pid]) free.push(i);
+        loops = loops.concat(repair(free, shuffled(leftovers.filter(function (x) { return !inLoops['p' + nodes[x].pid]; }))));
+      }
+      var sc = score(loops);
+      if (better(sc, best)) { sc.bound = best.bound; best = sc; }
+      if (!leftovers.length) break; // nothing too long: extra passes cannot do better for this solution
+    }
+  } while (best.people < best.bound && Date.now() - t0 < budgetMs * 0.3 && runs < 8);
+  best.runs = runs;
+  // exact solve of a small group of offers: every possible loop, then the best packing
+  function exactSolve(idx, blockedP, nodeLimit) {
+    var inSet = new Uint8Array(n); idx.forEach(function (x) { inSet[x] = 1; });
+    var loopsE = [], steps = 0;
+    idx.forEach(function (s) {
+      if (blockedP[nodes[s].pid]) return;
+      var path = [s], P = {}, B = {}; P[nodes[s].pid] = 1; B[nodes[s].block] = 1;
+      (function dfs() {
+        if (++steps > 400000) return;
+        var cur = path[path.length - 1];
+        for (var q = 0; q < idx.length; q++) {
+          var j = idx[q]; if (!ok[cur * n + j]) continue;
+          if (j === s) { if (path.length >= 2) loopsE.push(path.slice()); continue; }
+          if (j < s || path.length >= MAX_LOOP || P[nodes[j].pid] || B[nodes[j].block] || blockedP[nodes[j].pid]) continue;
+          P[nodes[j].pid] = 1; B[nodes[j].block] = 1; path.push(j); dfs(); path.pop(); delete P[nodes[j].pid]; delete B[nodes[j].block];
+        }
+      })();
+    });
+    if (steps > 400000) return null;
+    var Ls = loopsE.map(function (seq) { var l = loopFrom(seq); var pr = 0, rk = 0; seq.forEach(function (x, k) { rk += l.ranks[k]; if (isPrio(nodes[x].block)) pr++; }); return { l: l, pr: pr, rk: rk, mn: Math.min.apply(null, seq) }; });
+    var cntL = {}; Ls.forEach(function (L) { L.l.nodes.forEach(function (x) { cntL[x] = (cntL[x] || 0) + 1; }); });
+    var order = idx.filter(function (x) { return cntL[x]; }).sort(function (a, b) { return cntL[a] - cntL[b] || a - b; }), posOf = {}, byMin = {};
+    order.forEach(function (x, q) { posOf[x] = q; });
+    Ls.forEach(function (L) { var m = order[Math.min.apply(null, L.l.nodes.map(function (x) { return posOf[x]; }))]; (byMin[m] = byMin[m] || []).push(L); });
+    Object.keys(byMin).forEach(function (k) { byMin[k].sort(function (a, b) { return a.l.nodes.length - b.l.nodes.length || b.pr - a.pr || a.rk - b.rk; }); });
+    var bestE = { people: -1 }, chosen = [], usedX = {}, usedPp = {}, visits = 0;
+    (function go(pos, people, pr, rk, sq) {
+      if (++visits > nodeLimit) return;
+      var remain = 0; for (var q = pos; q < order.length; q++) if (!usedX[order[q]]) remain++;
+      if (people + remain < bestE.people) return;
+      if (pos === order.length) {
+        if (people > bestE.people || (people === bestE.people && (sq < bestE.sq || (sq === bestE.sq && (pr > bestE.pr || (pr === bestE.pr && rk < bestE.rk)))))) bestE = { people: people, sq: sq, pr: pr, rk: rk, loops: chosen.slice() };
+        return;
+      }
+      var x = order[pos];
+      if (!usedX[x]) (byMin[x] || []).forEach(function (L) {
+        if (L.l.nodes.some(function (y) { return usedX[y] || usedPp[nodes[y].pid]; })) return;
+        L.l.nodes.forEach(function (y) { usedX[y] = 1; usedPp[nodes[y].pid] = 1; }); chosen.push(L.l);
+        go(pos + 1, people + L.l.nodes.length, pr + L.pr, rk + L.rk, sq + L.l.nodes.length * L.l.nodes.length);
+        chosen.pop(); L.l.nodes.forEach(function (y) { delete usedX[y]; delete usedPp[nodes[y].pid]; });
       });
-    })([s], [], (function () { var p = {}; p[nodes[s].pid] = 1; return p; })(), (function () { var b = {}; b[nodes[s].block] = 1; return b; })());
+      go(pos + 1, people, pr, rk, sq);
+    })(0, 0, 0, 0, 0);
+    return visits > nodeLimit ? null : bestE;
   }
-  return loops;
-}
-function chooseLoops(nodes, loops, prio) {
-  prio = prio || [];
-  var best = null;
-  var passes = Math.max(20, Math.min(250, Math.floor(400000 / Math.max(1, loops.length))));
-  for (var pass = 0; pass < passes; pass++) {
-    var order = loops.map(function (l) { var avg = l.ranks.reduce(function (a, b) { return a + b; }, 0) / l.ranks.length; return { l: l, k: avg + Math.random() * 0.9 - (pass % 2 ? 0 : l.nodes.length * 0.05) - (prio.length && l.nodes.some(function (i) { return prio.indexOf(nodes[i].block) >= 0; }) ? 100 : 0) }; })
-      .sort(function (a, b) { return a.k - b.k; });
-    var used = {}, pick = [], people = 0, rankSum = 0;
-    order.forEach(function (o) {
-      var l = o.l;
-      if (l.nodes.some(function (i) { return used[i] || used['p:' + nodes[i].pid]; })) return;
-      l.nodes.forEach(function (i) { used[i] = 1; used['p:' + nodes[i].pid] = 1; });
-      pick.push(l); people += l.nodes.length; rankSum += l.ranks.reduce(function (a, b) { return a + b; }, 0);
-    });
-    if (!best || people > best.people || (people === best.people && rankSum < best.rankSum)) best = { pick: pick, people: people, rankSum: rankSum };
+  // small pools: solve the whole thing exactly
+  if (n <= 26) { var whole = exactSolve(Array.apply(null, Array(n)).map(function (_, x) { return x; }), {}, 3000000); if (whole) { var ws = score(whole.loops); ws.bound = best.bound; if (better(ws, best) || ws.people === best.people) best = ws; best.exact = true; best.ms = Date.now() - t0; return best; } }
+  // larger pools: improve by re-solving small neighbourhoods exactly
+  var nbr = []; for (i = 0; i < n; i++) { nbr.push([]); }
+  for (i = 0; i < n; i++) for (j = 0; j < n; j++) if (ok[i * n + j]) { nbr[i].push(j); nbr[j].push(i); }
+  var lnsIters = 0, noImp = 0;
+  while (noImp < 300 && Date.now() - t0 < budgetMs + 1000) {
+    lnsIters++; noImp++;
+    var loopOf = new Int32Array(n).fill(-1); best.pick.forEach(function (l, li) { l.nodes.forEach(function (x) { loopOf[x] = li; }); });
+    var freeAll = [], inAny = []; for (i = 0; i < n; i++) if (nbr[i].length) (loopOf[i] < 0 ? freeAll : inAny).push(i);
+    if (!freeAll.length && !inAny.length) break;
+    // usually start from an unmatched offer; sometimes from inside a loop, to reshape loops into smaller ones
+    var seed = freeAll.length && (Math.random() < 0.8 || !inAny.length) ? freeAll[rnd(freeAll.length)] : inAny[rnd(inAny.length)];
+    var D = {}, Dn = 0, dropLoops = {}, frontier = [], CAPN = 18 + rnd(6);
+    if (loopOf[seed] >= 0) { dropLoops[loopOf[seed]] = 1; best.pick[loopOf[seed]].nodes.forEach(function (x) { D[x] = 1; Dn++; frontier.push(x); }); }
+    else { D[seed] = 1; Dn = 1; frontier.push(seed); }
+    while (frontier.length && Dn < CAPN) {
+      var f = frontier.splice(rnd(frontier.length), 1)[0], nb = shuffled(nbr[f].slice());
+      for (var z = 0; z < nb.length && Dn < CAPN; z++) {
+        var y = nb[z]; if (D[y]) continue;
+        if (loopOf[y] >= 0) { var L = best.pick[loopOf[y]]; if (dropLoops[loopOf[y]] || Dn + L.nodes.length > CAPN + 4) continue; dropLoops[loopOf[y]] = 1; L.nodes.forEach(function (x) { if (!D[x]) { D[x] = 1; Dn++; frontier.push(x); } }); }
+        else { D[y] = 1; Dn++; frontier.push(y); }
+      }
+    }
+    var keep = best.pick.filter(function (l, li) { return !dropLoops[li]; }), blockedP = {};
+    keep.forEach(function (l) { l.nodes.forEach(function (x) { blockedP[nodes[x].pid] = 1; }); });
+    var idxs = Object.keys(D).map(Number).filter(function (x) { return !blockedP[nodes[x].pid]; });
+    var sub = exactSolve(idxs, blockedP, 200000); if (!sub) continue;
+    var cand2 = score(keep.concat(sub.loops)); cand2.bound = best.bound;
+    if (better(cand2, best)) { cand2.runs = best.runs; noImp = 0; best = cand2; }
   }
-  return best || { pick: [], people: 0, rankSum: 0 };
+  best.lns = lnsIters;
+  best.ms = Date.now() - t0;
+  return best;
 }
+
 function matchNodes() { return openListings().filter(function (l) { return isMatchable(l.block) && liveWants(l).length; }); }
 function runRound(ev, quiet) {
   if (S.busy) return;
@@ -486,27 +640,75 @@ function maybeAutoRun() { // run the latest scheduled round that is due and has 
   if (['listings', 'swaps', 'holdings', 'rounds'].some(function (c) { return S['_from_' + c] !== S.db; })) return;
   var now = nowTime(), due = schedule(addDays(today(), -6), today()).filter(function (e) { return e.time <= now; }).pop();
   if (!due || S.rounds['sched-' + due.id] || maybeAutoRun.tried[due.id]) return;
-  var ranTimes = Object.keys(S.rounds).map(function (k) { return new Date(S.rounds[k].ran).getTime(); });
+  var ranTimes = Object.keys(S.rounds).filter(function (k) { return S.rounds[k].kind !== 'rematch'; }).map(function (k) { return new Date(S.rounds[k].ran).getTime(); });
   if (!ranTimes.length || Math.max.apply(null, ranTimes) >= due.time.getTime()) return; // demo starts quiet; a round run after the due time counts
   if (!matchNodes().length) return;
   maybeAutoRun.tried[due.id] = 1;
-  runRound(due, true);
+  // claim the round first so only one open browser runs it
+  if (D().claim) D().claim('rounds/sched-' + due.id, { label: due.label + ' (running)', finals: due.finals, ran: stamp(), ranBy: S.me || null, offers: 0, swaps: 0, people: 0, running: true })
+    .then(function (got) { if (got) runRound(due, true); }, function (e) { console.error(e); });
+  else runRound(due, true);
 }
 maybeAutoRun.tried = {};
 function runRoundNow(nodes, ev) {
-  var loops = findLoops(nodes);
-  var best = chooseLoops(nodes, loops, ev ? ev.finals : []);
-  var now = stamp(), roundId = ev ? 'sched-' + ev.id : 'r' + rid(), writes = [];
-  best.pick.forEach(function (l) {
+  var best = matchPool(nodes, ev ? ev.finals : [], 1500);
+  var now = stamp(), roundId = ev ? 'sched-' + ev.id : 'r' + rid();
+  var writes = loopWrites(nodes, best.pick, roundId, now);
+  var sizes = {}; best.pick.forEach(function (l) { sizes[l.nodes.length] = (sizes[l.nodes.length] || 0) + 1; });
+  writes.push(function () { return D().doc('rounds/' + roundId).set({ label: ev ? ev.label : 'Round run by hand', finals: ev ? ev.finals : [], ran: now, ranBy: S.me || null, offers: nodes.length, bound: best.bound, exact: !!best.exact, swaps: best.pick.length, people: best.people, sizes: sizes }); });
+  S.lastResult = { swaps: best.pick.length, people: best.people, offers: nodes.length };
+  return bulk('Saving swaps', writes).then(function () { toast((ev ? ev.label + ': ' : '') + (best.pick.length ? 'matched ' + best.people + ' people in ' + best.pick.length + ' swaps.' : 'no swaps found.')); return best; }, function (e) { oops(e); return best; });
+}
+function loopWrites(nodes, pick, roundId, now) {
+  var writes = [];
+  pick.forEach(function (l) {
     var members = l.nodes.map(function (i, k) { var a = nodes[i], next = nodes[l.nodes[(k + 1) % l.nodes.length]]; return { pid: a.pid, gives: a.block, gets: next.block, rank: l.ranks[k] + 1 }; });
     var swId = 's' + rid();
     writes.push(function () { return D().doc('swaps/' + swId).set({ kind: 'round', round: roundId, members: members, accepted: {}, status: 'pending', created: now }); });
-    l.nodes.forEach(function (i) { var n = nodes[i]; writes.push(function () { return D().doc('listings/' + n.id).update({ status: 'matched', swapId: swId }); }); });
+    l.nodes.forEach(function (i) { var n = nodes[i]; S.recent[n.id] = 1; setTimeout(function () { delete S.recent[n.id]; }, 15000); writes.push(function () { return D().doc('listings/' + n.id).update({ status: 'matched', swapId: swId }); }); });
   });
-  var sizes = {}; best.pick.forEach(function (l) { sizes[l.nodes.length] = (sizes[l.nodes.length] || 0) + 1; });
-  writes.push(function () { return D().doc('rounds/' + roundId).set({ label: ev ? ev.label : 'Round run by hand', finals: ev ? ev.finals : [], ran: now, ranBy: S.me || null, offers: nodes.length, loopsFound: loops.length, swaps: best.pick.length, people: best.people, sizes: sizes }); });
-  S.lastResult = { swaps: best.pick.length, people: best.people, offers: nodes.length };
-  return bulk('Saving swaps', writes).then(function () { toast((ev ? ev.label + ': ' : '') + (best.pick.length ? 'matched ' + best.people + ' people in ' + best.pick.length + ' swaps.' : 'no swaps found.')); return best; }, function (e) { oops(e); return best; });
+  return writes;
+}
+/* Instant re-match: when a loop breaks, look straight away for new loops that include the people sent back.
+   Only loops containing at least one of them are made; everyone else waits for the next full round. */
+function queueRematch(pids) {
+  S.rmq = (S.rmq || []).concat(pids); clearTimeout(S.rmqT);
+  S.rmqT = setTimeout(function () { var q = S.rmq.filter(function (x, i, a) { return a.indexOf(x) === i; }); S.rmq = []; rematchAfterBreak(q); }, 900);
+}
+function rematchAfterBreak(released, fromSwId, tries) {
+  released = (released || []).filter(function (pid) { return BYID[pid]; });
+  if (!released.length) return;
+  if (S.busy) { if ((tries || 0) < 20) setTimeout(function () { rematchAfterBreak(released, fromSwId, (tries || 0) + 1); }, 500); return; }
+  released.forEach(function (pid) { holds(pid).forEach(function (b) { delete S.recent[listingId(pid, b)]; }); }); // their old loop is gone, so their offers are free again
+  var nodes = matchNodes().filter(function (x) { return !S.recent[x.id]; }), have = {};
+  nodes.forEach(function (x) { have[x.id] = 1; });
+  // the released listings may not have come back from shared storage yet: add them as open
+  released.forEach(function (pid) {
+    holds(pid).forEach(function (b) {
+      var id = listingId(pid, b), l = S.listings[id];
+      if (!l || have[id] || S.recent[id] || l.status === 'withdrawn' || (l.status === 'matched' && S.swaps[l.swapId] && swapState(Object.assign({ id: l.swapId }, S.swaps[l.swapId])) === 'pending')) return;
+      var o = Object.assign({ id: id }, l, { status: 'open', swapId: null });
+      if (isMatchable(o.block) && liveWants(o).length) { nodes.push(o); have[id] = 1; }
+    });
+  });
+  var isFocus = {}; nodes.forEach(function (x, i) { if (released.indexOf(x.pid) >= 0) isFocus[i] = 1; });
+  var focus = Object.keys(isFocus).map(Number);
+  if (!focus.length) return; // none of them has an offer that can still be matched
+  // keep only offers that could sit in a loop with a released person (reachable both ways within the loop limit)
+  var n = nodes.length, out = nodes.map(function () { return []; }), inn = nodes.map(function () { return []; });
+  nodes.forEach(function (a, i) { nodes.forEach(function (b, j) { if (i !== j && a.wants.indexOf(b.block) >= 0 && a.pid !== b.pid && isMatchable(b.block) && canTake(a, b)) { out[i].push(j); inn[j].push(i); } }); });
+  function reach(adj) { var d = {}, q = focus.slice(); focus.forEach(function (f) { d[f] = 0; }); for (var k = 0; k < q.length; k++) { var u = q[k]; if (d[u] >= MAX_LOOP - 1) continue; adj[u].forEach(function (v) { if (d[v] == null) { d[v] = d[u] + 1; q.push(v); } }); } return d; }
+  var fwd = reach(out), back = reach(inn);
+  var sub = nodes.filter(function (x, i) { return fwd[i] != null && back[i] != null && fwd[i] + back[i] <= MAX_LOOP; });
+  var best = matchPool(sub, [], 800);
+  var pick = best.pick.filter(function (l) { return l.nodes.some(function (i) { return released.indexOf(sub[i].pid) >= 0; }); });
+  var people = 0, got = 0; pick.forEach(function (l) { people += l.nodes.length; l.nodes.forEach(function (i) { if (released.indexOf(sub[i].pid) >= 0) got++; }); });
+  var nIn = released.filter(function (pid) { return sub.some(function (x) { return x.pid === pid; }); }).length;
+  if (!pick.length) { toast('No new swap right now for the ' + nIn + ' ' + (nIn === 1 ? 'person' : 'people') + ' sent back. They stay in the pool for direct swaps and the next round.'); return; }
+  var now = stamp(), roundId = 'rm' + rid(), writes = loopWrites(sub, pick, roundId, now);
+  var sizes = {}; pick.forEach(function (l) { sizes[l.nodes.length] = (sizes[l.nodes.length] || 0) + 1; });
+  writes.push(function () { return D().doc('rounds/' + roundId).set({ kind: 'rematch', label: 'Instant re-match', from: fromSwId || null, ran: now, ranBy: S.me || null, offers: sub.length, released: nIn, rematched: got, swaps: pick.length, people: people, sizes: sizes }); });
+  bulk('Re-matching', writes).then(function () { toast('Instant re-match: ' + got + ' of the ' + nIn + ' ' + (nIn === 1 ? 'person' : 'people') + ' sent back got a new swap' + (people > got ? ', with ' + (people - got) + ' other' + (people - got === 1 ? '' : 's') + ' from the pool' : '') + '.'); }, oops);
 }
 function seq(fns) { return fns.reduce(function (p, f) { return p.then(f); }, Promise.resolve()); }
 function setBusy(msg) { S.busy = !!msg; var el = document.getElementById('busy'); el.textContent = msg || ''; el.hidden = !msg; document.body.classList.toggle('isbusy', !!msg); }
@@ -528,10 +730,10 @@ function saveListing(block, wants) {
 function withdraw(block) { D().doc('listings/' + listingId(S.me, block)).delete().then(function () { toast('Block ' + block + ' withdrawn from the pool.'); }).catch(oops); }
 function proposeDirect(myBlock, lid) {
   var l = S.listings[lid]; if (!l || l.status !== 'open') { toast('That offer has just been taken.'); return; }
-  if (!isMatchable(myBlock) || !isMatchable(l.block)) { toast('Matching has closed for one of these blocks.'); return; }
+  if (!canDirect(S.me, myBlock, Object.assign({ id: lid }, l))) { toast(stationOnly(myBlock, l.block) ? 'After a block\'s final round, it can only be swapped with someone at your station.' : 'This swap is no longer possible.'); return; }
   var swId = 's' + rid(), now = stamp(), acc = {}; acc[S.me] = true;
   var members = [{ pid: S.me, gives: myBlock, gets: l.block, rank: null }, { pid: l.pid, gives: l.block, gets: myBlock, rank: l.wants.indexOf(myBlock) + 1 }];
-  var w = [function () { return D().doc('swaps/' + swId).set({ kind: 'direct', members: members, accepted: acc, status: 'pending', created: now }); },
+  var w = [function () { return D().doc('swaps/' + swId).set({ kind: 'direct', late: stationOnly(myBlock, l.block), members: members, accepted: acc, status: 'pending', created: now }); },
     function () { return D().doc('listings/' + lid).update({ status: 'matched', swapId: swId }); }];
   var mine = S.listings[listingId(S.me, myBlock)];
   if (mine && mine.status === 'open') w.push(function () { return D().doc('listings/' + listingId(S.me, myBlock)).update({ status: 'matched', swapId: swId }); });
@@ -574,7 +776,8 @@ function accept(swId) {
 function decline(swId) {
   var sw = S.swaps[swId]; if (!sw) return;
   var acc = Object.keys(sw.accepted || {}).filter(function (p) { return p !== S.me; });
-  seq(declineWrites(swId, sw, [S.me], acc)).then(function () { toast('Declined. Everyone else is back in the pool. Offer your block again if you want to rejoin.'); }).catch(oops);
+  var back = sw.members.map(function (m) { return m.pid; }).filter(function (p) { return p !== S.me; });
+  seq(declineWrites(swId, sw, [S.me], acc)).then(function () { toast('Declined. Everyone else is back in the pool. Offer your block again if you want to rejoin.'); queueRematch(back); }).catch(oops);
 }
 
 /* ---------- demo: simulate everyone's responses ---------- */
@@ -629,14 +832,16 @@ function cleanupDead() { // release listings tied to expired, void or unanswered
       var silent = sw.members.map(function (m) { return m.pid; }).filter(function (p) { return acc.indexOf(p) < 0; });
       var w2 = declineWrites(sw.id, sw, silent, acc);
       w2.push(function () { return D().doc('swaps/' + sw.id).update({ noAnswer: true, answerBy: answerBy(sw).toISOString() }); });
-      seq(w2).catch(function () {});
+      var back2 = sw.members.map(function (m) { return m.pid; }).filter(function (p) { return silent.indexOf(p) < 0; });
+      seq(w2).then(function () { queueRematch(back2); }).catch(function () {});
       return;
     }
     if ((st === 'expired' || st === 'void') && sw.status === 'pending' && !cleanupDead.done[sw.id]) {
       cleanupDead.done[sw.id] = 1;
       var w = [function () { return D().doc('swaps/' + sw.id).update({ status: st }); }];
       sw.members.forEach(function (m) { var lid = listingId(m.pid, m.gives); if (S.listings[lid] && S.listings[lid].swapId === sw.id) w.push(function () { return D().doc('listings/' + lid).update({ status: 'open', swapId: null }); }); });
-      seq(w).catch(function () {});
+      var back3 = sw.members.filter(function (m) { return holds(m.pid).indexOf(m.gives) >= 0; }).map(function (m) { return m.pid; });
+      seq(w).then(function () { if (st === 'void') queueRematch(back3); }).catch(function () {});
     }
   });
 }
@@ -663,29 +868,32 @@ function blockRange(b) { return fmt(blockStart(b)) + ' to ' + fmt(blockEnd(b), t
 function blockChip(b) { return '<span class="chip ' + (PEAK[b] ? 'peak' : 'blue') + '"><span class="bk">B' + b + '</span> ' + fmt(blockStart(b)) + '</span>'; }
 function cutoffLine(b) {
   var c = blockCutoff(b), d = daysTo(c);
-  if (d < 0) return '<span class="chip">Locked since ' + fmt(c, true) + '</span>';
+  if (today() >= blockStart(b)) return '<span class="chip">Started ' + fmt(blockStart(b), true) + '</span>';
+  if (isLate(b)) return '<span class="chip blue">Station swaps only, until ' + fmt(lateEnd(b)) + '</span>';
+  if (d < 0) return '<span class="chip">Pool closed. Station swaps from ' + fmt(lateStart(b)) + '</span>';
   if (d <= 21) return '<span class="chip warn">Swaps close ' + fmt(c, true) + ' (' + (d === 0 ? 'today' : d + ' days') + ')</span>';
   return '<span class="chip ok">Swaps close ' + fmt(c, true) + '</span>';
 }
 function stripCells(opts) {
   var h = '';
   for (var b = 1; b <= NBLOCKS; b++) {
-    var cls = ['cell']; if (PEAK[b]) cls.push('peak'); if (!isOpen(b)) cls.push('locked');
+    var cls = ['cell']; if (PEAK[b]) cls.push('peak'); if (isLate(b)) cls.push('late'); else if (!isOpen(b)) cls.push('locked');
     var extra = opts && opts.cell ? opts.cell(b) : {};
     if (extra.cls) cls.push(extra.cls);
     var tag = extra.button ? 'button' : 'div';
-    h += '<' + tag + ' class="' + cls.join(' ') + '"' + (extra.button ? ' type="button" data-act="' + extra.button + '" data-b="' + b + '"' + (extra.disabled ? ' disabled' : '') : '') + ' title="Block ' + b + ': ' + blockRange(b) + (PEAK[b] ? ' (' + PEAK[b] + ')' : '') + (isOpen(b) ? '' : ' · locked') + '">' +
+    h += '<' + tag + ' class="' + cls.join(' ') + '"' + (extra.button ? ' type="button" data-act="' + extra.button + '" data-b="' + b + '"' + (extra.disabled ? ' disabled' : '') : '') + ' title="Block ' + b + ': ' + blockRange(b) + (PEAK[b] ? ' (' + PEAK[b] + ')' : '') + (isLate(b) ? ' · after its final round: station swaps only' : isOpen(b) ? '' : ' · closed') + '">' +
       '<span class="n">' + b + '</span><span class="d">' + fmt(blockStart(b)) + '</span>' + (extra.html || '') + '</' + tag + '>';
   }
   if (opts && opts.wrap) return '<div class="strip strip-wrap">' + h + '</div>';
   return '<div class="strip-scroll"><div class="strip">' + h + '</div></div>';
 }
 function swapCard(sw, opts) {
+  if (opts && opts.compact) return swapCardCompact(sw);
   var st = swapState(sw), meIn = sw.members.some(function (m) { return m.pid === S.me; });
   var cls = st === 'pending' ? 'pending' : st === 'agreed' ? 'agreed' : 'dead';
   var ab = answerBy(sw), left = daysTo(ab);
   var stChip = { pending: '<span class="chip warn">Waiting on ' + sw.members.filter(function (m) { return !(sw.accepted || {})[m.pid]; }).length + ' to accept</span> <span class="chip ' + (left <= 1 ? 'red' : '') + '">Answer by ' + fmt(ab) + (left <= 0 ? ' (today)' : left === 1 ? ' (tomorrow)' : '') + '</span>', lapsed: '<span class="chip">No answer in time</span>', agreed: '<span class="chip ok">Agreed · needs manager approval</span>', declined: '<span class="chip red">' + (sw.noAnswer ? 'No answer from ' : 'Declined by ') + esc(declinedBy(sw).map(pName).join(', ')) + (sw.noAnswer ? ', counted as a decline' : '') + '</span>', expired: '<span class="chip">Expired at cutoff</span>', void: '<span class="chip">Cancelled</span>' }[st] || '';
-  var kind = sw.kind === 'direct' ? 'Direct swap' : sw.members.length + '-way swap';
+  var kind = (sw.late ? 'Station swap' : sw.kind === 'direct' ? 'Direct swap' : sw.members.length + '-way swap');
   var h = '<div class="item ' + cls + '"><div class="spread"><div class="row"><h3>' + kind + '</h3>' + stChip + '</div><span class="small muted">' + (sw.kind === 'round' ? 'Matching round, ' : 'Proposed ') + fmt(new Date(sw.created), true) + '</span></div><div class="chain">';
   sw.members.forEach(function (m) {
     var p = BYID[m.pid], ok = (sw.accepted || {})[m.pid];
@@ -698,6 +906,22 @@ function swapCard(sw, opts) {
   if (meIn && st === 'pending' && !(sw.accepted || {})[S.me]) h += '<div class="row"><button class="ok" data-act="accept" data-id="' + sw.id + '">Accept swap</button><button data-act="decline" data-id="' + sw.id + '">Decline</button><span class="small muted">The swap is final once everyone accepts.</span></div>';
   if (DEMO_SIM && st === 'pending') h += '<div class="row small"><span class="label">Demo</span><button data-act="simall" data-id="' + sw.id + '">Everyone accepts</button><button data-act="simdec" data-id="' + sw.id + '">Someone declines</button></div>';
   if (meIn && st === 'agreed') h += '<div class="row"><button data-act="copy" data-id="' + sw.id + '">Copy approval request</button><span class="small muted">Send it to your manager. The award needs NSW Ambulance approval for leave exchanges.</span></div>';
+  return h + '</div>';
+}
+function swapCardCompact(sw) {
+  var st = swapState(sw), meIn = sw.members.some(function (m) { return m.pid === S.me; });
+  var cls = st === 'pending' ? 'pending' : st === 'agreed' ? 'agreed' : 'dead';
+  var ab = answerBy(sw), left = daysTo(ab), waitN = sw.members.filter(function (m) { return !(sw.accepted || {})[m.pid]; }).length;
+  var chip = { pending: '<span class="chip warn">' + waitN + ' to accept</span><span class="chip' + (left <= 1 ? ' red' : '') + '">by ' + fmt(ab) + '</span>', lapsed: '<span class="chip">No answer</span>', agreed: '<span class="chip ok">Agreed</span>', declined: '<span class="chip red">' + (sw.noAnswer ? 'No answer' : 'Declined') + '</span>', expired: '<span class="chip">Expired</span>', void: '<span class="chip">Cancelled</span>' }[st] || '';
+  var eff = stationEffect(sw);
+  var h = '<div class="item sc ' + cls + (meIn ? ' mineitem' : '') + '"' + (eff ? ' title="Station headcount change: ' + esc(eff.replace(/<[^>]+>/g, '')) + '"' : '') + '><div class="sch"><strong>' + (sw.kind === 'direct' ? 'Direct' : sw.members.length + '-way') + '</strong>' + (sw.late ? '<span class="chip blue">Station swap</span>' : '') + chip + '<span class="small muted" style="margin-left:auto">' + fmt(new Date(sw.created)) + '</span></div>';
+  sw.members.forEach(function (m) {
+    var p = BYID[m.pid], ok = (sw.accepted || {})[m.pid], dec = st === 'declined' && declinedBy(sw).indexOf(m.pid) >= 0;
+    h += '<div class="scr' + (m.pid === S.me ? ' me' : '') + '"><span class="tick">' + (dec ? '<span style="color:var(--accent)">✗</span>' : ok ? '<span style="color:var(--ok)">✓</span>' : '·') + '</span><span class="nm"><strong>' + esc(p.name) + '</strong> <span class="muted">' + esc(stName(p.station)) + '</span></span><span class="mono bb">B' + m.gives + '→B' + m.gets + '</span></div>';
+  });
+  if (meIn && st === 'pending' && !(sw.accepted || {})[S.me]) h += '<div class="row" style="gap:6px"><button class="ok" data-act="accept" data-id="' + sw.id + '">Accept</button><button data-act="decline" data-id="' + sw.id + '">Decline</button></div>';
+  if (DEMO_SIM && st === 'pending') h += '<div class="row small" style="gap:6px"><button data-act="simall" data-id="' + sw.id + '">All accept</button><button data-act="simdec" data-id="' + sw.id + '">Someone declines</button></div>';
+  if (meIn && st === 'agreed') h += '<div class="row"><button data-act="copy" data-id="' + sw.id + '">Copy approval request</button></div>';
   return h + '</div>';
 }
 function stationEffect(sw) {
@@ -713,7 +937,8 @@ function approvalText(sw) {
     'Giving up: Block ' + me.gives + ', ' + blockRange(me.gives), 'Taking: Block ' + me.gets + ', ' + blockRange(me.gets), '',
     'This is a ' + sw.members.length + '-person exchange agreed by all parties on ' + fmt(new Date(sw.agreedAt || sw.created), true) + ':'];
   sw.members.forEach(function (m) { var q = BYID[m.pid]; lines.push('- ' + q.name + ' (' + stName(q.station) + '): Block ' + m.gives + ' to Block ' + m.gets); });
-  lines.push('', 'Swap deadline (4 months before the earliest block): ' + fmt(new Date(Math.min.apply(null, sw.members.map(function (m) { return blockCutoff(Math.min(m.gives, m.gets)).getTime(); }))), true));
+  if (sw.late) lines.push('', 'Late exchange: after the block\'s final matching round, direct swap between staff at the same station (' + stName(p.station) + ').');
+  else lines.push('', 'Pool cutoff (10 weeks before the earliest block): ' + fmt(new Date(Math.min.apply(null, sw.members.map(function (m) { return blockCutoff(Math.min(m.gives, m.gets)).getTime(); }))), true));
   return lines.join('\n');
 }
 
@@ -722,20 +947,21 @@ function vMy() {
   if (!S.me) return '<div class="view"><div class="empty">Choose a station and paramedic at the top to see their leave.</div></div>';
   var p = BYID[S.me], mine = holds(S.me), orig = p.blocks;
   var h = '<div class="view"><div><h2>' + esc(p.name) + '</h2><p class="lede">' + esc(p.level) + ' at ' + esc(stName(p.station)) + '. You hold two 3-week blocks. Offer one to the pool and say which blocks you would take instead, in order of preference.</p></div>';
-  h += '<div class="panel">' + stripCells({ cell: function (b) { return mine.indexOf(b) >= 0 ? { cls: 'mine' } : {}; } }) + '<div class="legend" style="margin-top:8px"><span><i style="background:var(--leave)"></i>Your leave</span><span><i style="background:var(--peak)"></i>School holidays / Christmas</span><span><i style="background:var(--off-soft)"></i>Faded = past the 4-month cutoff</span></div></div>';
+  h += '<div class="panel">' + stripCells({ cell: function (b) { return mine.indexOf(b) >= 0 ? { cls: 'mine' } : {}; } }) + '<div class="legend" style="margin-top:8px"><span><i style="background:var(--leave)"></i>Your leave</span><span><i style="background:var(--peak)"></i>School holidays / Christmas</span><span><i class="late"></i>Striped = after the final round, station swaps only</span><span><i style="background:var(--off-soft)"></i>Faded = closed</span></div></div>';
   var pend = swapList().filter(function (sw) { return swapState(sw) === 'pending' && sw.members.some(function (m) { return m.pid === S.me; }); });
   if (pend.length) h += '<div class="list"><h3>Swaps waiting on you</h3>' + pend.map(function (sw) { return swapCard(sw); }).join('') + '</div>';
   h += '<div class="blocks">';
   mine.forEach(function (b) {
-    var l = S.listings[listingId(S.me, b)], open = isOpen(b);
+    var l = S.listings[listingId(S.me, b)], open = isListable(b), myStn = esc(stName(p.station));
     h += '<div class="bcard' + (S.editing === b ? ' editing' : '') + '"><div class="spread"><div><div class="label">Block ' + (orig.indexOf(b) < 0 ? '· swapped in' : '') + '</div><div class="big">B' + b + '</div></div><div style="text-align:right">' + (PEAK[b] ? '<span class="chip peak">' + PEAK[b] + '</span>' : '') + '</div></div>';
-    var canMatch = isMatchable(b);
-    h += '<dl class="facts"><dt>Dates</dt><dd>' + blockRange(b) + '</dd><dt>Final round</dt><dd>' + dayName(matchEnd(b)) + ', 9am</dd><dt>Swap deadline</dt><dd>' + cutoffLine(b) + '</dd></dl>';
-    if (!open) h += '<div class="note">This block is inside the 4-month cutoff and can no longer be swapped.</div>';
-    else if (!canMatch && !(l && l.status === 'matched')) h += '<div class="note">Matching for B' + b + ' closed after its final round on ' + fmt(matchEnd(b), true) + '. You keep B' + b + '. Any swap already proposed can still be answered by its deadline.</div>';
+    var canMatch = isSwappable(b);
+    h += '<dl class="facts"><dt>Dates</dt><dd>' + blockRange(b) + '</dd>' + (today() <= matchEnd(b) ? '<dt>Final round</dt><dd>' + dayName(matchEnd(b)) + ', 9am</dd>' : '') + '<dt>Pool swaps</dt><dd>' + cutoffLine(b) + '</dd><dt>Station swaps</dt><dd>' + fmt(lateStart(b)) + ' to ' + fmt(lateEnd(b), true) + '</dd></dl>';
+    if (!open) h += '<div class="note">' + (today() >= blockStart(b) ? 'This block has started and can no longer be swapped.' : 'Pool swaps for B' + b + ' closed on ' + fmt(blockCutoff(b), true) + '. From ' + fmt(lateStart(b), true) + ' you can swap it directly with someone at ' + myStn + '.') + '</div>';
+    else if (!canMatch && !(l && l.status === 'matched')) h += '<div class="note">Matching for B' + b + ' closed after its final round on ' + fmt(matchEnd(b), true) + '. From ' + fmt(lateStart(b), true) + ' you can still swap it directly with someone at ' + myStn + '. Any swap already proposed can still be answered by its deadline.</div>';
+    if (open && isLate(b) && !(l && l.status === 'matched')) h += '<div class="note info"><strong>Pool matching has closed.</strong> B' + b + ' can only be swapped 1-for-1 with someone at ' + myStn + ', as a direct swap. It does not go into matching rounds.</div>';
     else if (S.editing === b && canMatch) {
       h += '<div class="label">Tap the blocks you would take, first choice first</div>' + stripCells({ wrap: true, cell: function (x) {
-        var r = S.editWants.indexOf(x), dis = mine.indexOf(x) >= 0 || !isMatchable(x);
+        var r = S.editWants.indexOf(x), dis = mine.indexOf(x) >= 0 || !isSwappable(x);
         return { button: 'pickwant', disabled: dis, cls: r >= 0 ? 'sel' : (mine.indexOf(x) >= 0 ? 'mine' : ''), html: r >= 0 ? '<span class="rank">' + (r + 1) + '</span>' : '' };
       } });
       h += '<div class="small muted">' + (S.editWants.length ? 'Your order: ' + S.editWants.map(function (x, i) { return (i + 1) + '. B' + x; }).join('  ') : 'Nothing picked yet.') + '</div>';
@@ -743,7 +969,7 @@ function vMy() {
     } else if (l && l.status === 'matched') {
       h += '<div class="note info">In a proposed swap. See it above.</div>';
     } else if (l) {
-      var lw = liveWants(l), gone = l.wants.filter(function (x) { return !isMatchable(x); });
+      var lw = liveWants(l), gone = l.wants.filter(function (x) { return !isSwappable(x); });
       if (!lw.length) h += '<div class="note" style="background:var(--accent-soft);color:var(--accent)"><strong>This offer can\'t match.</strong> None of your choices are open any more (' + gone.map(function (x) { return 'B' + x + ' closed ' + fmt(matchEnd(x)); }).join(', ') + '). Add new choices or withdraw it.</div>';
       else h += '<div class="note info">In the pool. You would take: ' + lw.map(function (x, i) { return (i + 1) + '. B' + x; }).join(', ') + (gone.length ? '<br><span class="small">No longer possible: ' + gone.map(function (x) { return 'B' + x + ' (closed ' + fmt(matchEnd(x)) + ')'; }).join(', ') + '</span>' : '') + '</div>';
       h += '<div class="row"><button data-act="edit" data-b="' + b + '">Change choices</button><button class="ghost" data-act="withdraw" data-b="' + b + '">Withdraw</button></div>';
@@ -753,7 +979,7 @@ function vMy() {
       if (canMatch) h += '<div class="row"><button class="primary" data-act="edit" data-b="' + b + '">Offer B' + b + ' for a swap</button></div>';
     }
     if (canMatch && !(l && l.status === 'matched')) {
-      var direct = openListings().filter(function (o) { return o.pid !== S.me && isMatchable(o.block) && liveWants(o).indexOf(b) >= 0 && canTake({ pid: S.me }, o); });
+      var direct = openListings().filter(function (o) { return canDirect(S.me, b, o); });
       if (direct.length) {
         h += '<details data-k="d' + b + '"><summary>' + direct.length + ' ' + (direct.length === 1 ? 'person wants' : 'people want') + ' B' + b + ' right now</summary><div class="list" style="margin-top:8px">';
         direct.slice(0, 12).forEach(function (o) { var q = BYID[o.pid]; h += '<div class="link"><div style="min-width:0"><strong>' + esc(q.name) + '</strong> <span class="small muted">' + esc(stName(q.station)) + '</span><br><span class="small">Gives ' + blockChip(o.block) + '</span></div><button data-act="direct" data-b="' + b + '" data-id="' + o.id + '">Swap</button></div>'; });
@@ -769,7 +995,7 @@ function vMy() {
 }
 function vPool() {
   var ol = openListings(), sup = {}, dem = {}, pen = {}, penList = {}, penTotal = 0, max = 1;
-  var stuck = 0; ol.forEach(function (l) { var lw = isMatchable(l.block) ? liveWants(l) : []; if (!lw.length) { stuck++; return; } sup[l.block] = (sup[l.block] || 0) + 1; lw.forEach(function (w) { dem[w] = (dem[w] || 0) + 1; }); });
+  var stuck = 0; ol.forEach(function (l) { var lw = isSwappable(l.block) ? liveWants(l) : []; if (!lw.length) { stuck++; return; } sup[l.block] = (sup[l.block] || 0) + 1; lw.forEach(function (w) { dem[w] = (dem[w] || 0) + 1; }); });
   swapList().forEach(function (sw) { if (swapState(sw) !== 'pending') return; sw.members.forEach(function (m) { if (!isOpen(m.gives)) return; pen[m.gives] = (pen[m.gives] || 0) + 1; (penList[m.gives] = penList[m.gives] || []).push({ m: m, sw: sw }); penTotal++; }); });
   for (var b = 1; b <= NBLOCKS; b++) max = Math.max(max, sup[b] || 0, dem[b] || 0, pen[b] || 0);
   var h = '<div class="view"><div class="spread"><div><h2>Leave pool</h2><p class="lede">' + (ol.length - stuck) + ' blocks on offer across ' + STATIONS.length + ' stations' + (penTotal ? ', plus ' + penTotal + ' tied up in swaps waiting for answers' : '') + '. Pick a block to see who is offering it.' + (stuck ? ' ' + stuck + ' more ' + (stuck === 1 ? 'offer is' : 'offers are') + ' stuck because matching has closed for them or all their choices.' : '') + '</p></div></div>';
@@ -781,14 +1007,14 @@ function vPool() {
   var pb = S.poolBlock;
   if (pb) {
     var offers = ol.filter(function (l) { return l.block === pb; });
-    var wanters = ol.filter(function (l) { return isMatchable(l.block) && liveWants(l).indexOf(pb) >= 0; });
-    h += '<div class="grid2"><div class="panel"><div class="spread"><h3>Offering B' + pb + '</h3>' + cutoffLine(pb) + '</div><p class="small" style="margin:4px 0 0">' + (isMatchable(pb) ? 'Final round ' + dayName(matchEnd(pb)) + ', 9am' : (isOpen(pb) ? 'Matching closed after the final round on ' + fmt(matchEnd(pb)) : '')) + '</p><p class="small muted" style="margin:4px 0 10px">' + blockRange(pb) + (PEAK[pb] ? ' · ' + PEAK[pb] : '') + '</p><div class="list">';
+    var wanters = ol.filter(function (l) { return isSwappable(l.block) && liveWants(l).indexOf(pb) >= 0; });
+    h += '<div class="grid2"><div class="panel"><div class="spread"><h3>Offering B' + pb + '</h3>' + cutoffLine(pb) + '</div><p class="small" style="margin:4px 0 0">' + (isMatchable(pb) ? 'Final round ' + dayName(matchEnd(pb)) + ', 9am' : isLate(pb) ? 'After its final round: direct swaps with someone at the same station only' : (isOpen(pb) ? 'Matching closed after the final round on ' + fmt(matchEnd(pb)) : '')) + '</p><p class="small muted" style="margin:4px 0 10px">' + blockRange(pb) + (PEAK[pb] ? ' · ' + PEAK[pb] : '') + '</p><div class="list">';
     if (!offers.length) h += '<div class="empty">Nobody is offering B' + pb + ' yet.</div>';
     offers.forEach(function (o) {
       var q = BYID[o.pid];
-      var isStuck = !isMatchable(o.block) || !liveWants(o).length;
-      var myOpts = S.me && !isStuck ? holds(S.me).filter(function (mb) { return liveWants(o).indexOf(mb) >= 0 && isMatchable(mb) && canTake({ pid: S.me }, o) && !(S.listings[listingId(S.me, mb)] && S.listings[listingId(S.me, mb)].status === 'matched'); }) : [];
-      h += '<div class="item"><div class="spread"><div style="min-width:0"><strong>' + esc(q.name) + '</strong> <span class="small muted">' + esc(q.level) + ', ' + esc(stName(q.station)) + '</span></div>' + (isStuck ? '<span class="chip red">can\'t match</span>' : '') + (o.example ? '<span class="chip">example</span>' : '') + '</div><div class="row small">Would take ' + (isStuck ? '<span class="muted">nothing still open</span>' : liveWants(o).map(blockChip).join(' ')) + '</div>' +
+      var isStuck = !isSwappable(o.block) || !liveWants(o).length;
+      var myOpts = S.me && !isStuck ? holds(S.me).filter(function (mb) { return canDirect(S.me, mb, o) && !(S.listings[listingId(S.me, mb)] && S.listings[listingId(S.me, mb)].status === 'matched'); }) : [];
+      h += '<div class="item"><div class="spread"><div style="min-width:0"><strong>' + esc(q.name) + '</strong> <span class="small muted">' + esc(q.level) + ', ' + esc(stName(q.station)) + '</span></div>' + (isStuck ? '<span class="chip red">can\'t match</span>' : '') + (isLate(o.block) ? '<span class="chip blue">' + esc(stName(q.station)) + ' only</span>' : '') + (o.example ? '<span class="chip">example</span>' : '') + '</div><div class="row small">Would take ' + (isStuck ? '<span class="muted">nothing still open</span>' : liveWants(o).map(blockChip).join(' ')) + '</div>' +
         (myOpts.length ? '<div class="row">' + myOpts.map(function (mb) { return '<button class="primary" data-act="direct" data-b="' + mb + '" data-id="' + o.id + '">Swap my B' + mb + ' for this</button>'; }).join('') + '</div>' : '') + '</div>';
     });
     h += '</div></div><div class="panel"><h3>Wanting B' + pb + '</h3><p class="small muted" style="margin:4px 0 10px">' + wanters.length + ' people listed B' + pb + ' as a choice.</p><div class="list">';
@@ -804,11 +1030,28 @@ function vPool() {
   }
   return h + '</div>';
 }
+function lastRound() { var r = Object.keys(S.rounds).map(function (k) { return S.rounds[k]; }).filter(function (x) { return x.kind !== 'rematch'; }).sort(function (a, b) { return (b.ran || '').localeCompare(a.ran || ''); }); return r[0]; }
 function vSwaps() {
-  var all = swapList(), rounds = Object.keys(S.rounds).map(function (k) { return S.rounds[k]; }).sort(function (a, b) { return (b.ran || '').localeCompare(a.ran || ''); });
-  var last = rounds[0];
-  var h = '<div class="view"><div><h2>Swaps</h2><p class="lede">A matching round looks at every offer in the pool and finds loops where everyone gets a block they asked for. Rounds run every Monday at 9am, plus a final round for each block 8 days before its cutoff. Between rounds, anyone can take a direct 1-for-1 swap, first in best dressed.</p></div>';
+  var all = swapList(), last = lastRound();
+  var nxt = schedule(today(), addDays(today(), 42)).filter(function (e) { return e.time > nowTime(); })[0];
+  var by = { pending: [], agreed: [], other: [] };
+  all.forEach(function (sw) { var st = swapState(sw); (st === 'pending' ? by.pending : st === 'agreed' ? by.agreed : by.other).push(sw); });
+  var h = '<div class="view swapsview"><div class="spread"><div class="row" style="gap:6px 14px"><h2>Swaps</h2>' +
+    '<span class="chip warn">' + by.pending.length + ' waiting</span><span class="chip ok">' + by.agreed.length + ' agreed</span></div>' +
+    '<div class="row small muted" style="gap:6px 12px"><span>' + (last ? 'Last round ' + fmt(new Date(last.ran)) + ': ' + last.people + ' matched' : 'No rounds yet') + (nxt ? ' · Next ' + dayName(nxt.time) + ', 9am' : '') + '</span><a href="#rounds">Rounds</a><button class="primary" data-act="round">Run matching round</button></div></div>';
+  var mineFirst = function (a, b) { var ma = a.members.some(function (m) { return m.pid === S.me; }), mb = b.members.some(function (m) { return m.pid === S.me; }); return (mb ? 1 : 0) - (ma ? 1 : 0); };
+  var live = by.pending.slice().sort(mineFirst).concat(by.agreed.slice().sort(mineFirst));
+  h += live.length ? '<div class="swapgrid">' + live.map(function (sw) { return swapCard(sw, { compact: true }); }).join('') + '</div>' : '<div class="empty">No swaps yet. Offers in the pool get matched at the next round, or run one now.</div>';
+  if (by.other.length) h += '<details data-k="oldswaps"><summary class="small">Declined, unanswered, expired or cancelled (' + by.other.length + ')</summary><div class="swapgrid" style="margin-top:8px">' + by.other.map(function (sw) { return swapCard(sw, { compact: true }); }).join('') + '</div></details>';
+  h += '<p class="small muted" style="margin:0">Your swaps come first, highlighted. Hover a swap to see how it changes station headcounts.</p>';
+  return h + '</div>';
+}
+function vRounds() {
+  var all = swapList(), last = lastRound();
+  var h = '<div class="view"><div><h2>Matching rounds</h2><p class="lede">A matching round looks at every offer in the pool and finds loops where everyone gets a block they asked for. If a loop breaks because someone declines or does not answer, an instant re-match looks for new loops for the people sent back, straight away. Rounds run every Monday at 9am, plus a final round for each block 8 days before its cutoff. Between rounds, anyone can take a direct 1-for-1 swap, first in best dressed.</p></div>';
   h += '<div class="panel spread"><div><div class="label">Matching round</div><div>' + (last ? 'Last run ' + fmt(new Date(last.ran), true) + (last.label ? ' (' + esc(last.label) + ')' : '') + ': matched <strong>' + last.people + '</strong> people in ' + last.swaps + ' swaps from ' + last.offers + ' offers.' : 'No rounds run yet.') + '</div><div class="small muted">' + openListings().length + ' open offers in the pool now. Loops of up to ' + MAX_LOOP + ' people. Ties are settled by random draw.</div></div><button class="primary" data-act="round">Run matching round now</button></div>';
+  var rms = Object.keys(S.rounds).map(function (k) { return S.rounds[k]; }).filter(function (x) { return x.kind === 'rematch'; });
+  if (rms.length) { var rmP = rms.reduce(function (a, x) { return a + (x.rematched || 0); }, 0), rmR = rms.reduce(function (a, x) { return a + (x.released || 0); }, 0); h += '<div class="panel"><div class="label">Instant re-matches</div><div>' + rms.length + ' so far: <strong>' + rmP + '</strong> of ' + rmR + ' people sent back from broken loops got a new swap straight away.</div></div>'; }
   var up = schedule(today(), addDays(today(), 42)).filter(function (e) { return e.time > nowTime(); }).slice(0, 6);
   h += '<div class="panel"><div class="label">Upcoming rounds</div><div class="list" style="margin-top:8px">' + (up.length ? up.map(function (e) {
     return '<div class="link"><div style="min-width:0"><strong>' + dayName(e.time) + ', 9am</strong> <span class="small' + (e.finals.length ? '" style="color:var(--accent);font-weight:600' : ' muted') + '">' + esc(e.label) + '</span>' + (e.finals.length ? '<br><span class="small muted">Last chance to match ' + e.finals.map(function (x) { return 'B' + x; }).join(', ') + '. Swaps that include it get priority. Answers due ' + fmt(addDays(blockCutoff(e.finals[0]), -BUFFER_DAYS)) + '.</span>' : '') + '</div>' +
@@ -827,12 +1070,6 @@ function vSwaps() {
     }
     h += '</div>';
   }
-  var groups = [['pending', 'Waiting for acceptance'], ['agreed', 'Agreed'], ['other', 'Declined, unanswered, expired or cancelled']];
-  groups.forEach(function (g) {
-    var items = all.filter(function (sw) { var st = swapState(sw); return g[0] === 'other' ? (st !== 'pending' && st !== 'agreed') : st === g[0]; });
-    if (!items.length && g[0] === 'other') return;
-    h += '<div class="list"><h3>' + g[1] + ' <span class="muted small">(' + items.length + ')</span></h3>' + (items.length ? items.map(function (sw) { return swapCard(sw); }).join('') : '<div class="empty">None yet.</div>') + '</div>';
-  });
   return h + '</div>';
 }
 function vRoster() {
@@ -868,15 +1105,16 @@ function vHow() {
   h += '<div class="grid2"><div class="panel"><h3>The rules built in</h3><ul>' +
     '<li>2027 has 17 blocks of 3 weeks, starting Saturday 16 Jan 2027. Everyone holds two.</li>' +
     '<li>Only whole blocks can be swapped for now. Shorter periods can come later, when leave can be taken in 1-week periods.</li>' +
-    '<li>Swaps close 4 months before a block starts. Each block gets a final matching round 8 days before that, and no new matches after it.</li>' +
-    '<li>Everyone has 5 days to answer a swap, and never later than 3 days before the cutoff. No answer counts as a decline.</li>' +
-    '<li>Swaps can cross stations. Every swap is a loop, so the number of people on leave across the sector never changes in any block.</li>' +
+    '<li>Each block gets a final matching round 8 days before its 10-week cutoff. After that round, pool swaps (matching and cross-station swaps) close for that block.</li>' +
+    '<li>From the day after its final round, a block can still be swapped, but only 1-for-1 with someone at your own station, as a direct swap, up to the day before it starts.</li>' +
+    '<li>Everyone has 5 days to answer a swap, and never later than 3 days before the pool cutoff (or the day before the block starts, for station swaps). No answer counts as a decline.</li>' +
+    '<li>Pool swaps can cross stations. Every swap is a loop, so the number of people on leave across the sector never changes in any block.</li>' +
     '<li>A swap is only final when every person in the loop accepts. Then each person asks their own manager to approve it, as the award requires.</li></ul></div>';
   h += '<div class="panel"><h3>Getting a block</h3><ol>' +
     '<li><strong>Offer</strong> one of your blocks and pick the blocks you would take, in order.</li>' +
-    '<li><strong>Matching round</strong> (Mondays 9am, plus a final round before each cutoff): the system finds loops of 2 to ' + MAX_LOOP + ' people where everyone gets one of their choices, matching as many people as possible. Ties go to a random draw.</li>' +
-    '<li><strong>Direct swap</strong>: between rounds, if someone is offering a block you want and they would take one of yours, you can propose a 1-for-1 swap straight away.</li>' +
-    '<li><strong>Accept</strong> within the swap. Decline and you leave the pool; everyone else goes back in.</li></ol></div></div>';
+    '<li><strong>Matching round</strong> (Mondays 9am, plus a final round before each cutoff): the system finds loops of 2 to ' + MAX_LOOP + ' people where everyone gets one of their choices, matching as many people as possible. When two answers match the same number, it prefers smaller loops, since everyone in a loop has to accept. Ties go to a random draw.</li>' +
+    '<li><strong>Direct swap</strong>: between rounds, if someone is offering a block you want and they would take one of yours, you can propose a 1-for-1 swap straight away. After a block\'s final round this is the only way to swap it, and only with someone at your station.</li>' +
+    '<li><strong>Accept</strong> within the swap. Decline and you leave the pool; everyone else goes back in straight away and gets an <strong>instant re-match</strong>: the system looks for a new loop that includes them right then. If there is none, they can take a direct swap or be matched at the next round.</li></ol></div></div>';
   h += '<div class="panel"><h3>Open questions for the group</h3><ul><li>Should someone who got a peak block (school holidays, Christmas) last year lose tiebreaks this year?</li><li>Is there a limit on how many people from one station can be off in the same block, even with sector flexibility?</li><li>Who runs the app and holds the data once it is real?</li></ul></div>';
   h += '<div class="panel"><h3>Demo tools</h3><p class="small muted">For testing only. Changes here affect everyone using this page.</p><div class="grid2" style="margin-top:10px"><div><label class="label" for="pretend">Pretend today is</label><div class="row" style="margin-top:4px"><input type="date" id="pretend" value="' + (pretend || '') + '"><button data-act="clearpretend"' + (pretend ? '' : ' disabled') + '>Use real date</button></div><div class="small muted" style="margin-top:4px">Now using ' + fmt(t, true) + '. Only changes your view.</div></div>' +
     '<div><div class="label">Pool data</div><div class="row" style="margin-top:4px"><button data-act="samples5">Add 5 example requests</button><button data-act="samples">Add 40 example requests</button>' + (S.confirmReset ? '<button class="primary" data-act="reset">Yes, clear everything</button><button class="ghost" data-act="noreset">Keep</button>' : '<button data-act="askreset">Clear all swaps and offers</button>') + '</div></div></div></div>';
@@ -900,9 +1138,8 @@ function paintInner() {
   var v = S.view, main = document.getElementById('main');
   document.querySelectorAll('nav.tabs a').forEach(function (a) { if (a.dataset.v === v) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
   var n = myPendingCount(), bd = document.getElementById('myBadge'); bd.hidden = !n; bd.textContent = n;
-  var body = v === 'pool' ? vPool() : v === 'swaps' ? vSwaps() : v === 'roster' ? vRoster() : v === 'how' ? vHow() : vMy();
-  if (S.setupNeeded) body = '<div class="note" style="margin-bottom:14px"><strong>Not connected to the shared database.</strong> ' + esc(S.setupNeeded) + ' Until then, changes are saved in this browser only.</div>' + body;
-  else if (S.live) body = '<div class="note info" style="margin-bottom:14px">Demo with made-up staff. Everyone using this link shares the same data, and anyone can act as anyone.</div>' + body;
+  var body = v === 'pool' ? vPool() : v === 'swaps' ? vSwaps() : v === 'rounds' ? vRounds() : v === 'roster' ? vRoster() : v === 'how' ? vHow() : vMy();
+  if (!S.live && S.loaded) body = '<div class="note" style="margin-bottom:14px">Not connected to Supabase, so changes last only until you reload. Add your project URL and anon key to config.js.</div>' + body;
   if (body === S._lastBody) return;
   var open = {}; main.querySelectorAll('details[data-k]').forEach(function (d) { if (d.open) open[d.dataset.k] = 1; });
   S._lastBody = body; main.innerHTML = body;
@@ -959,42 +1196,17 @@ document.addEventListener('change', function (e) {
   if (e.target.id === 'rosterSel') { S.rosterStation = e.target.value; render(); }
   if (e.target.id === 'pretend') { if (e.target.value) ls('lbx-pretend', e.target.value); else ls('lbx-pretend', null); render(); }
 });
-function route() { var h = (location.hash || '#my').slice(1); S.view = ['my', 'pool', 'swaps', 'roster', 'how'].indexOf(h) >= 0 ? h : 'my'; render(); window.scrollTo(0, 0); }
+function route() { var h = (location.hash || '#my').slice(1); S.view = ['my', 'pool', 'swaps', 'rounds', 'roster', 'how'].indexOf(h) >= 0 ? h : 'my'; render(); window.scrollTo(0, 0); }
 window.addEventListener('hashchange', route);
 
 initPicker();
 S.db = MemDB();
 route();
+subscribe();
 (function connect() {
-  var cfg = window.LBX_CONFIG, why = null, url = '', key = '';
-  function clean(v) { return String(v == null ? '' : v).replace(/[\u0000-\u0020\u007F-\u00A0\u00AD\u2000-\u200F\u2028-\u202F\u205F-\u206F\u3000\uFEFF'"‘’“”]/g, ''); }
-  if (cfg) {
-    var um = clean(cfg.supabaseUrl).match(/https:\/\/[a-z0-9-]+\.supabase\.co/i);
-    url = um ? um[0] : '';
-    key = clean(cfg.supabaseAnonKey);
-  }
-  if (!window.supabase || !window.supabase.createClient) why = 'The Supabase library did not load. Check your internet connection and reload.';
-  else if (!cfg) why = 'config.js did not load. Check it is uploaded to GitHub with exactly that name (not config.js.txt) next to index.html, and that each value is wrapped in straight quote marks.';
-  else if (/YOUR-/.test(String(cfg.supabaseUrl))) why = 'config.js still has the placeholder Project URL. Upload your edited config.js to GitHub, wait a minute, then reload.';
-  else if (/YOUR-/.test(String(cfg.supabaseAnonKey))) why = 'config.js still has the placeholder key. Upload your edited config.js to GitHub, wait a minute, then reload.';
-  else if (!url) why = 'Could not find a Supabase Project URL in config.js. It should look like https://abcdefgh.supabase.co';
-  else if (key.length < 20) why = 'The key in config.js looks too short. Copy the whole anon public key (it starts with eyJ).';
-  if (why) { S.setupNeeded = why; subscribe(); return; }
-  var db = SupaDB(window.supabase.createClient(url, key));
-  S.db = db; S.live = true; subscribe();
-  db.count().then(function (n) { // first visit to an empty database: load the example requests once
-    if (n > 0) return;
-    var w = (window.SEED || []).map(function (o) { return function () { return db.doc(o.path).set(o.data); }; });
-    w.push(function () { return db.doc('meta/seeded').set({ at: new Date().toISOString() }); });
-    return bulk('Loading example requests', w);
-  }).catch(function (e) {
-    console.error(e);
-    var m = (e && e.message) || 'unknown error';
-    var hint = /api key|apikey|jwt|401|unauthori/i.test(m) ? ' The key in config.js is probably wrong: use the anon public key that starts with eyJ.' : /relation|does not exist|schema cache|docs/i.test(m) ? ' The docs table is missing: run supabase-setup.sql again in the SQL Editor.' : /fetch|network|failed/i.test(m) ? ' The Project URL may be wrong, or the project is paused: check the Supabase dashboard.' : '';
-    S.setupNeeded = 'Supabase refused the connection (' + m + ').' + hint; S.live = false; S.db = MemDB(); subscribe(); render();
-  });
+  var db = window.LBXConnectSupabase && window.LBXConnectSupabase();
+  if (db) { S.db = db; S.live = true; subscribe(); }
 })();
 </script>
-
 </body>
 </html>
